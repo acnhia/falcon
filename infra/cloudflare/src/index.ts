@@ -1,8 +1,11 @@
+import { handleOnboardingRequest } from './onboarding/router'
+
 interface Env {
   UPLOADS: R2Bucket
   UPLOAD_SESSIONS: DurableObjectNamespace<UploadSession>
   STORAGE_QUOTA: DurableObjectNamespace<StorageQuota>
   TRANSFERS: D1Database
+  ONBOARDING_DB: D1Database
   ASSETS: Fetcher
 }
 
@@ -33,6 +36,8 @@ export default {
 
     const transfer = url.pathname.match(/^\/api\/transfers\/([^/]+)$/)
     if (request.method === 'GET' && transfer) return transferMetadata(env, transfer[1], url)
+
+    if (url.pathname.startsWith('/api/onboarding/')) return handleOnboardingRequest(request, env)
 
     if (!url.pathname.startsWith('/api/uploads')) return env.ASSETS.fetch(request)
 

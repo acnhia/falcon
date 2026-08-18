@@ -5,13 +5,13 @@ import {
   parseEnvironment, required, setEnvironmentValues, cloudflare,
 } from './cloudflare-client.mjs'
 
-const migrationPath = resolve(scriptDirectory, '../migrations/0001_create_transfers.sql')
+const migrationPath = resolve(scriptDirectory, '../migrations-onboarding/0001_create_onboarding.sql')
 
 const envSource = await readFile(envPath, 'utf8')
 const config = parseEnvironment(envSource)
 const accountId = required(config, 'account_id')
 const apiToken = required(config, 'api_token')
-const databaseName = config.D1_DATABASE_NAME || 'upload-transfer-test'
+const databaseName = config.ONBOARDING_D1_DATABASE_NAME || 'onboarding-test'
 const apiBase = `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database`
 
 const databases = await cloudflare(`${apiBase}?per_page=100`, apiToken)
@@ -32,20 +32,20 @@ await cloudflare(`${apiBase}/${database.uuid}/query`, apiToken, {
   method: 'POST',
   body: JSON.stringify({ sql: migration }),
 })
-console.log('Applied idempotent transfer schema.')
+console.log('Applied idempotent onboarding schema.')
 
 await writeFile(envPath, setEnvironmentValues(envSource, {
-  D1_DATABASE_NAME: databaseName,
-  D1_DATABASE_ID: database.uuid,
+  ONBOARDING_D1_DATABASE_NAME: databaseName,
+  ONBOARDING_D1_DATABASE_ID: database.uuid,
 }))
 
 const wrangler = JSON.parse(await readFile(wranglerPath, 'utf8'))
-const otherDatabases = (wrangler.d1_databases ?? []).filter((db) => db.binding !== 'TRANSFERS')
+const otherDatabases = (wrangler.d1_databases ?? []).filter((db) => db.binding !== 'ONBOARDING_DB')
 wrangler.d1_databases = [...otherDatabases, {
-  binding: 'TRANSFERS',
+  binding: 'ONBOARDING_DB',
   database_name: databaseName,
   database_id: database.uuid,
-  migrations_dir: 'migrations',
+  migrations_dir: 'migrations-onboarding',
 }]
 await writeFile(wranglerPath, `${JSON.stringify(wrangler, null, 2)}\n`)
 console.log('Updated local environment and Wrangler binding.')

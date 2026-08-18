@@ -22,7 +22,8 @@ if (!skipTests) run('npm', ['test'], reactDirectory, 'React tests')
 run('npm', ['run', 'build'], reactDirectory, 'React production build')
 
 run('node', ['scripts/provision-r2.mjs'], cloudflareDirectory, 'R2 bucket provisioning')
-run('node', ['scripts/provision-d1.mjs'], cloudflareDirectory, 'D1 database provisioning')
+run('node', ['scripts/provision-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (file-transfer)')
+run('node', ['scripts/provision-onboarding-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (onboarding)')
 
 run('npx', ['wrangler', 'deploy'], cloudflareDirectory, 'Worker deployment', {
   CLOUDFLARE_API_TOKEN: config.api_token,

@@ -13,7 +13,7 @@
   "r2_buckets": [
     {
       "binding": "UPLOADS",
-      "bucket_name": "upload-demo-test"
+      "bucket_name": "test"
     }
   ],
   "d1_databases": [
@@ -22,6 +22,12 @@
       "database_name": "upload-transfer-test",
       "database_id": "4c643291-9dcd-408f-a2a5-03441cbfe80c",
       "migrations_dir": "migrations"
+    },
+    {
+      "binding": "ONBOARDING_DB",
+      "database_name": "onboarding-test",
+      "database_id": "bc03adb9-5faf-475b-a0c3-9cce2bb71359",
+      "migrations_dir": "migrations-onboarding"
     }
   ],
   "durable_objects": {
