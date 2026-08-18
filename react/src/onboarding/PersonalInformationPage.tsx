@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { saveActivityDraft, continueActivity, type ResumeStateResponse } from './api'
 import { suggestionFor, REQUIRED_FIELD_ORDER, OPTIONAL_FIELD_ORDER, type FieldSuggestion } from './mockAssistant'
-import { isRealtimeVoiceSupported, startRealtimeSession, type RealtimeVoiceSession } from './realtimeVoice'
+import { isRealtimeVoiceSupported, startRealtimeSession, type FieldProposal, type RealtimeVoiceSession } from './realtimeVoice'
 
 const MAX_VOICE_SESSION_MS = 3 * 60_000
 
@@ -94,7 +94,8 @@ export default function PersonalInformationPage({
     }
     setVoiceState('connecting')
     const session = await startRealtimeSession({
-      onSuggestion: (suggestion) => addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion }),
+      onPropose: (proposal) => addMessage({ id: crypto.randomUUID(), role: 'assistant', text: proposal.message }),
+      onConfirm: handleVoiceConfirm,
       onStateChange: (state) => {
         if (state === 'open') setVoiceState('live')
         if (state === 'error') {
@@ -112,6 +113,14 @@ export default function PersonalInformationPage({
         endVoiceSession()
       }, MAX_VOICE_SESSION_MS)
     }
+  }
+
+  function handleVoiceConfirm(proposal: FieldProposal) {
+    updateField(proposal.fieldKey, proposal.value)
+    addMessage({
+      id: crypto.randomUUID(), role: 'assistant',
+      text: `Confirmed by voice - applied to ${FIELD_LABEL[proposal.fieldKey] ?? proposal.fieldKey}. You can still edit it directly if needed.`,
+    })
   }
 
   function handleVoiceError(errorCode: string) {
@@ -160,7 +169,8 @@ export default function PersonalInformationPage({
     <main className="wizard-dark wizard-workspace">
       <p className="wizard-disclosure">
         Demonstration only - synthetic data. Voice sessions are a live AI conversation (ends automatically after
-        3 minutes); any suggested value still requires your explicit approval before it fills a field.
+        3 minutes) - the assistant asks out loud before using anything you say; say "yes" to confirm, or just say
+        the right value instead.
       </p>
       <h1>Personal information — stage 2 of 21</h1>
       <div className="wizard-progress-overall">

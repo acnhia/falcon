@@ -132,6 +132,21 @@ button:disabled {
   padding: 32px 24px;
 }
 
+/* Buttons inherit the base app's purple (--accent) by default - override within
+   the wizard so it consistently uses its own distinct palette, not the
+   file-transfer demo's color. Restrained: outlined by default, filled solid
+   only for an active/successful state (e.g. a live voice session) - see
+   REQUIREMENTS.md's "restrained green accent for active/successful states." */
+.wizard-dark button {
+  background: transparent;
+  border: 1px solid var(--wizard-accent);
+  color: var(--wizard-accent);
+}
+
+.wizard-dark button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--wizard-accent) 16%, transparent);
+}
+
 .wizard-welcome {
   max-width: 560px;
   margin: 0 auto;

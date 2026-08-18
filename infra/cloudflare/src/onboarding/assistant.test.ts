@@ -3,13 +3,22 @@ import { describe, expect, it } from 'vitest'
 import { buildRealtimeSessionRequest } from './assistant'
 
 describe('buildRealtimeSessionRequest', () => {
-  it('declares the suggest_field_value tool with the known field keys', () => {
+  it('declares both propose_field_value and confirm_field_value tools with the known field keys', () => {
     const body = buildRealtimeSessionRequest()
-    const tool = body.session.tools[0]
+    const propose = body.session.tools.find((t) => t.name === 'propose_field_value')
+    const confirm = body.session.tools.find((t) => t.name === 'confirm_field_value')
 
-    expect(tool.name).toBe('suggest_field_value')
-    expect(tool.parameters.properties.fieldKey.enum).toContain('dateOfBirth')
-    expect(tool.parameters.required).toEqual(['fieldKey', 'value', 'message'])
+    expect(propose?.parameters.properties.fieldKey.enum).toContain('dateOfBirth')
+    expect(propose?.parameters.required).toEqual(['fieldKey', 'value', 'message'])
+    expect(confirm?.parameters.properties.fieldKey.enum).toContain('dateOfBirth')
+    expect(confirm?.parameters.required).toEqual(['fieldKey'])
+  })
+
+  it('instructs the model to ask out loud and wait for a verbal yes before confirming', () => {
+    const body = buildRealtimeSessionRequest()
+
+    expect(body.session.instructions).toContain('ask the user out loud')
+    expect(body.session.instructions).toContain('Never call confirm_field_value without first calling propose_field_value')
   })
 
   it('never claims to give financial/legal advice and stays synthetic-data scoped', () => {

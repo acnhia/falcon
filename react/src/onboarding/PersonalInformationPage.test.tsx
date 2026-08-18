@@ -80,7 +80,7 @@ describe('PersonalInformationPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
     await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalledWith(expect.objectContaining({
-      onSuggestion: expect.any(Function), onStateChange: expect.any(Function), onError: expect.any(Function),
+      onPropose: expect.any(Function), onConfirm: expect.any(Function), onStateChange: expect.any(Function), onError: expect.any(Function),
     })))
 
     const { onStateChange } = voice.startRealtimeSession.mock.calls[0][0]
@@ -89,21 +89,33 @@ describe('PersonalInformationPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /end voice session/i }).getAttribute('aria-pressed')).toBe('true'))
   })
 
-  it('a suggest_field_value tool call shows a suggestion that still requires "Use this" to fill the field', async () => {
+  it('a voice proposal is shown as text only - it never fills the field by itself', async () => {
     await renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
     await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
 
-    const { onSuggestion } = voice.startRealtimeSession.mock.calls[0][0]
-    onSuggestion({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it - September 13, 1981.' })
+    const { onPropose } = voice.startRealtimeSession.mock.calls[0][0]
+    onPropose({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use September 13, 1981?' })
 
-    await waitFor(() => screen.getByText('Got it - September 13, 1981.'))
+    await waitFor(() => screen.getByText('Should I use September 13, 1981?'))
     const dobInput = screen.getByLabelText(/date of birth/i) as HTMLInputElement
     expect(dobInput.value).toBe('')
+    expect(screen.queryByRole('button', { name: /use this/i })).toBeNull()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: /use this/i }))
-    expect(dobInput.value).toBe('1981-09-13')
+  it('a verbal confirmation for a proposed field fills it directly, with no button click needed', async () => {
+    await renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
+
+    const { onConfirm } = voice.startRealtimeSession.mock.calls[0][0]
+    onConfirm({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use September 13, 1981?' })
+
+    const dobInput = screen.getByLabelText(/date of birth/i) as HTMLInputElement
+    await waitFor(() => expect(dobInput.value).toBe('1981-09-13'))
+    screen.getByText(/confirmed by voice/i)
   })
 
   it('clicking again while live ends the voice session', async () => {

@@ -45,9 +45,27 @@ class FakePeerConnection {
   }
 }
 
+class FakeAudio {
+  static instances: FakeAudio[] = []
+  autoplay = false
+  style = { display: '' }
+  srcObject: unknown = null
+  play = vi.fn().mockResolvedValue(undefined)
+  pause = vi.fn()
+  remove = vi.fn()
+
+  constructor() {
+    FakeAudio.instances.push(this)
+  }
+}
+
 function fakeMicStream() {
   const track = { stop: vi.fn() }
-  return { getTracks: () => [track], stopped: () => track.stop.mock.calls.length > 0 }
+  return { getTracks: () => [track] }
+}
+
+function functionCallEvent(name: string, args: unknown, callId = 'call-1') {
+  return { data: JSON.stringify({ type: 'response.done', response: { output: [{ type: 'function_call', name, call_id: callId, arguments: JSON.stringify(args) }] } }) }
 }
 
 beforeEach(() => {
@@ -58,16 +76,17 @@ beforeEach(() => {
     value: { getUserMedia: vi.fn().mockResolvedValue(fakeMicStream()) },
     configurable: true,
   })
-  vi.stubGlobal('Audio', class {
-    autoplay = false
-    srcObject: unknown = null
-  })
+  FakeAudio.instances = []
+  vi.stubGlobal('Audio', FakeAudio)
+  // The Audio stub isn't a real DOM Node - appendChild/remove around it are irrelevant to what these tests verify.
+  vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node)
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => 'fake-answer-sdp' }))
   api.requestRealtimeSession.mockResolvedValue({ clientSecret: 'ephemeral-secret', model: 'gpt-realtime-2.1' })
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('isRealtimeVoiceSupported', () => {
@@ -86,7 +105,7 @@ describe('startRealtimeSession', () => {
     vi.stubGlobal('RTCPeerConnection', undefined)
     const onError = vi.fn()
 
-    const session = await startRealtimeSession({ onSuggestion: vi.fn(), onStateChange: vi.fn(), onError })
+    const session = await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError })
 
     expect(session).toBeNull()
     expect(onError).toHaveBeenCalledWith('unsupported')
@@ -100,14 +119,14 @@ describe('startRealtimeSession', () => {
     })
     const onError = vi.fn()
 
-    const session = await startRealtimeSession({ onSuggestion: vi.fn(), onStateChange: vi.fn(), onError })
+    const session = await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError })
 
     expect(session).toBeNull()
     expect(onError).toHaveBeenCalledWith('not-allowed')
   })
 
   it('requests an ephemeral session before exchanging SDP, and posts the offer with the ephemeral secret', async () => {
-    await startRealtimeSession({ onSuggestion: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
+    await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
 
     expect(api.requestRealtimeSession).toHaveBeenCalled()
     expect(fetch).toHaveBeenCalledWith('https://api.openai.com/v1/realtime/calls', expect.objectContaining({
@@ -117,39 +136,62 @@ describe('startRealtimeSession', () => {
     }))
   })
 
-  it('maps a suggest_field_value function-call event to onSuggestion', async () => {
-    const onSuggestion = vi.fn()
-    await startRealtimeSession({ onSuggestion, onStateChange: vi.fn(), onError: vi.fn() })
+  it('attaches and plays the remote audio track when it arrives', async () => {
+    await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
 
     const pc = FakePeerConnection.instances[0]
-    pc.dataChannel.onmessage?.({
-      data: JSON.stringify({
-        type: 'response.done',
-        response: {
-          output: [{
-            type: 'function_call', name: 'suggest_field_value', call_id: 'call-1',
-            arguments: JSON.stringify({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it.' }),
-          }],
-        },
-      }),
-    })
+    const fakeStream = {} as MediaStream
+    pc.ontrack?.({ streams: [fakeStream] })
 
-    expect(onSuggestion).toHaveBeenCalledWith({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it.' })
+    const audio = FakeAudio.instances[0]
+    expect(audio.srcObject).toBe(fakeStream)
+    expect(audio.play).toHaveBeenCalled()
+  })
+
+  it('a propose_field_value call notifies onPropose and acknowledges the tool call', async () => {
+    const onPropose = vi.fn()
+    await startRealtimeSession({ onPropose, onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
+
+    const pc = FakePeerConnection.instances[0]
+    pc.dataChannel.onmessage?.(functionCallEvent('propose_field_value', { fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use September 13, 1981?' }))
+
+    expect(onPropose).toHaveBeenCalledWith({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use September 13, 1981?' })
     expect(pc.dataChannel.sent).toHaveLength(1)
   })
 
+  it('a confirm_field_value call for a previously proposed field notifies onConfirm', async () => {
+    const onConfirm = vi.fn()
+    await startRealtimeSession({ onPropose: vi.fn(), onConfirm, onStateChange: vi.fn(), onError: vi.fn() })
+
+    const pc = FakePeerConnection.instances[0]
+    pc.dataChannel.onmessage?.(functionCallEvent('propose_field_value', { fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use this?' }, 'call-1'))
+    pc.dataChannel.onmessage?.(functionCallEvent('confirm_field_value', { fieldKey: 'dateOfBirth' }, 'call-2'))
+
+    expect(onConfirm).toHaveBeenCalledWith({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Should I use this?' })
+  })
+
+  it('ignores a confirm_field_value call for a field that was never proposed', async () => {
+    const onConfirm = vi.fn()
+    await startRealtimeSession({ onPropose: vi.fn(), onConfirm, onStateChange: vi.fn(), onError: vi.fn() })
+
+    const pc = FakePeerConnection.instances[0]
+    pc.dataChannel.onmessage?.(functionCallEvent('confirm_field_value', { fieldKey: 'dateOfBirth' }))
+
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
   it('ignores non-function-call and unrelated event types without throwing', async () => {
-    const onSuggestion = vi.fn()
-    await startRealtimeSession({ onSuggestion, onStateChange: vi.fn(), onError: vi.fn() })
+    const onPropose = vi.fn()
+    await startRealtimeSession({ onPropose, onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
 
     const pc = FakePeerConnection.instances[0]
     expect(() => pc.dataChannel.onmessage?.({ data: 'not json' })).not.toThrow()
     expect(() => pc.dataChannel.onmessage?.({ data: JSON.stringify({ type: 'session.created' }) })).not.toThrow()
-    expect(onSuggestion).not.toHaveBeenCalled()
+    expect(onPropose).not.toHaveBeenCalled()
   })
 
   it('close() stops the microphone tracks and closes the peer connection', async () => {
-    const session = await startRealtimeSession({ onSuggestion: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
+    const session = await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
     const pc = FakePeerConnection.instances[0]
 
     session?.close()
