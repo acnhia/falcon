@@ -1,116 +1,103 @@
-# Multipart Upload to Cloudflare R2 — Learning Demo
+# Falcon — Brokerage Account-Onboarding POC
 
-A small full-stack project built to *learn from*, not to run in production. A React UI splits a
-file into parts and uploads them concurrently to a Java (Spring Boot 3 / Java 21) backend, which
-forwards each part to Cloudflare R2 (S3-compatible object storage) via a hand-built
-producer-consumer pipeline. Runs as three Docker containers behind an nginx reverse proxy.
+A demonstration-only brokerage-account onboarding experience: a React frontend, a Java 21 /
+Spring Boot backend, and a resumable, server-persisted workflow engine. Built to show engineering
+discipline (TDD, provider-neutral adapters, cloud-portable deployment) — **not** a real brokerage
+service. See [`context.md`](context.md) and [`docs/brokerage-onboarding/`](docs/brokerage-onboarding)
+for the full requirements, decision log, and design.
 
-Credentials live only in `.env` (gitignored) — never commit real values or paste them into this
-file.
+## Safety boundaries
+
+- All applicant data is synthetic. No real identity, driver license, biometric, or financial data
+  is ever collected, stored, or sent to a provider.
+- Identity validation is an explicit **mock** adapter — not KYC, AML, fraud detection, or legal
+  identity verification.
+- Chat and voice guidance on the personal-information screen are deterministic, client-side mocks:
+  no real AI call, no speech-to-text, no provider credentials in the browser.
 
 ## Architecture
 
 ```
-Browser                    nginx :8080              backend :8081            Cloudflare R2
-┌──────────────┐   /       ┌──────────┐   /api/*   ┌────────────────┐  S3 API  ┌───────────┐
-│ React (Vite) │◄─────────►│  reverse │◄──────────►│ Spring Boot    │◄────────►│  bucket   │
-│ chunkFile()  │  parts    │  proxy   │  PUT parts │ UploadOrchestr.│  parts   │           │
-│ uploadManager│  (N conc.)│          │  (N conc.) │ PartUploadPipe.│          │           │
-└──────────────┘           └──────────┘             └────────────────┘          └───────────┘
+React (Vite)                    Java / Spring Boot                H2 (JDBC)
+┌──────────────────┐   /api/*   ┌─────────────────────────┐      ┌───────────┐
+│ OnboardingWizard  │◄──────────►│ TaskRegistry (allowlist) │◄────►│  schema.sql│
+│ WelcomePage       │            │  → WizardOrchestrator    │      │  (9 tables)│
+│ PersonalInfoPage  │            │  → OnboardingOrchestrator│      └───────────┘
+│ DocumentCapturePage│           │  → mock validation/       │
+└──────────────────┘            │    storage adapters      │
+                                 └─────────────────────────┘
+                                            │
+                                            ▼
+                                    Cloudflare R2 (private,
+                                    non-public document storage)
 ```
 
-- React slices the file client-side into parts (5–8MB each) and uploads up to 4 at a time.
-- Each `PUT /api/uploads/{sessionId}/parts/{n}` request lands on the backend, which enqueues it
-  and forwards it to R2 via a pool of worker threads.
-- When the last expected part is recorded, the backend automatically completes the R2 multipart
-  upload; the frontend also calls `POST /complete` explicitly once all parts succeed (idempotent
-  either way).
+- **Task-worker model**: every onboarding activity runs through an Otterobot-inspired `BaseTask` →
+  one `TaskRegistry`-allowlisted task → one orchestrator method. Clients can never select an
+  arbitrary class — only a fixed, named set of tasks.
+- **Resumable workflow**: the onboarding journey is modeled as 21 workflow activities surfaced
+  through 8 wizard screens (see [`05-wizard-data-and-services.md`](docs/brokerage-onboarding/05-wizard-data-and-services.md)).
+  Server-persisted activity state — not browser state — decides where a user resumes.
+- **Persistence**: plain JDBC + H2 (file-based locally, in-memory for tests) — no ORM, matching the
+  rest of the codebase's raw-SQL style. Postgres-portable schema for a future managed database.
 
-## Running it
+## Current status: "foundation" phase
+
+| Area | Status |
+| --- | --- |
+| Activities 1–4 of 21 (consent, create/resume, personal information, mock age/identity pre-check) | ✅ Implemented and tested |
+| Wizard screens 1–2 of 8 (welcome/consent, personal information) | ✅ Implemented and tested |
+| Identity-capture flow (capture link → front/back document → mock validation) | ✅ Implemented and tested |
+| Resumable state, idempotent retry, stale-dependency marking (date-of-birth → pre-check) | ✅ Implemented and tested |
+| Wizard screens 3–8, market ticker, server-side assistant module | ⏳ Not started — see the decision log in `context.md` |
+
+Backend: 74 tests passing (`mvn test`, via the Dockerized Maven run below). Frontend: 50 tests
+passing (`npm test`), plus a clean `tsc --noEmit`, `npm run build`, and `oxlint`.
+
+## Running it locally
+
+This repo also contains an earlier, separate multipart-file-transfer learning demo
+(`backend/src/main/java/com/falcon/upload`, `react/src/upload`) — unrelated to onboarding, kept
+isolated by package/route, and served at `#/upload` in the same React app. Both share one
+`docker-compose.yml`:
 
 ```bash
 docker compose up --build
 ```
 
-Then open **http://localhost:8080**.
+Then open **http://localhost:8080** for the onboarding wizard (the file-transfer demo is at
+`http://localhost:8080/#/upload`). No external credentials are required for the onboarding flow —
+document storage/validation run in mock/local mode.
 
-Requires a `.env` file in this directory (see `.env` for the expected keys: `account_id`,
-`api_token`, `access_id`, `secret_key`, `s3_url`). `docker-compose.yml` maps these into the
-backend's Spring environment variables (`ACCOUNT_ID`, `ACCESS_ID`, `SECRET_KEY`, `S3_URL`,
-`BUCKET_NAME`).
+To run just the backend's test suite (this machine has no local JDK/Maven):
 
-**Before it will actually upload to R2, you need to, in the Cloudflare dashboard:**
-1. Enable R2 for the account (if not already) and create a bucket (default expected name:
-   `upload-demo`, or set `BUCKET_NAME` in `.env` to match an existing bucket).
-2. Make sure the API token in `.env` has R2 **read+write** permissions — the token currently in
-   `.env` verifies as valid but returns an authentication error on R2-specific calls, so it likely
-   needs its permissions widened (or a new R2 API token created) before uploads will succeed.
+```bash
+docker run --rm -v "$(pwd)/backend":/workspace -w /workspace maven:3.9-eclipse-temurin-21 mvn test
+```
 
-## REST API
+## REST API (onboarding)
 
 | Method | Path | Purpose |
-|---|---|---|
-| POST | `/api/uploads` | `{filename, totalParts}` → `{sessionId, objectKey, totalParts}` |
-| PUT | `/api/uploads/{sessionId}/parts/{n}` | binary body → `{partNumber, eTag}` |
-| POST | `/api/uploads/{sessionId}/complete` | idempotent; finalizes the R2 multipart upload |
-| POST | `/api/uploads/{sessionId}/abort` | aborts the session and the R2 multipart upload |
-| GET | `/api/uploads/{sessionId}` | `{status, completedParts, totalParts}` |
-
-## OOP design
-
-| Pattern | Class(es) | Why |
-|---|---|---|
-| **State** | `UploadState` + `InitiatedState`/`UploadingState`/`CompletingState`/`CompletedState`/`FailedState`/`AbortedState` (`domain/`) | The upload lifecycle is a real state machine, not a status field flipped by ad-hoc `if`s. Each state class decides which transitions are legal from itself; illegal ones throw `IllegalStateTransitionException` instead of silently corrupting a session. |
-| **Repository** | `UploadSessionRepository` (interface) + `InMemoryUploadSessionRepository` | Isolates session persistence from orchestration logic. A Redis-backed implementation (needed to scale the backend to multiple replicas) would only require a new class implementing this interface — nothing else in the app would change. |
-| **Adapter / Strategy** | `ObjectStorageClient` (interface) + `CloudflareR2StorageClient` | Every AWS-SDK-specific detail (endpoint override, path-style addressing, request/response types) is isolated behind one seam. The rest of the app never imports an AWS SDK class directly. |
-| **Facade** | `UploadOrchestrator` / `DefaultUploadOrchestrator` | The REST controller has one simple dependency; it doesn't know a part upload involves a queue, worker threads, and a state machine underneath. |
-| **Producer-Consumer** | `PartUploadPipeline` + `PartUploadTask` | See Concurrency below — this is where most of the interesting mechanics live. |
-
-## Concurrency
-
-`PartUploadPipeline` (`backend/src/main/java/com/demo/upload/service/PartUploadPipeline.java`) is
-the core of the demo:
-
-- **Producers**: every HTTP request thread handling a `PUT .../parts/{n}` call wraps the part as a
-  `PartUploadTask` and drops it on a `BlockingQueue`, then blocks on that task's own
-  `CompletableFuture` (with a timeout) to give the client a definitive success/failure per part.
-- **Consumers**: a fixed number of dedicated **virtual threads** (`upload.worker-pool-size`, default
-  8) loop on `queue.take()` and call R2's `UploadPart` API. Virtual threads are used because
-  `uploadPart` is I/O-bound and blocks on the network — exactly the case Java 21 virtual threads
-  are designed to make cheap. Bounding the worker count bounds concurrent R2 calls independent of
-  how many HTTP requests arrive at once; the queue absorbs the burst.
-- **Shared state without a coarse lock**: `UploadSession.parts` is a `ConcurrentHashMap` (safe
-  concurrent inserts, no locking needed since each part number is written exactly once).
-  `completedCount` is an `AtomicInteger`. `completionStarted` is an `AtomicBoolean` — its
-  `compareAndSet` is what guarantees that exactly one thread ever triggers
-  `CompleteMultipartUpload`, even if the pipeline's auto-trigger and an explicit
-  `POST /complete` call race for it at the same instant.
-- **Async completion**: the winning thread doesn't block itself finishing the upload — it fires
-  `CompleteMultipartUpload` via `CompletableFuture.runAsync` on a separate executor, so it's
-  immediately free to pick up the next queued part.
-- **State transitions**, unlike part completions, are rare and must be strictly ordered, so they
-  go through a single `synchronized` method on `UploadSession` rather than lock-free primitives.
-
-On the frontend, `uploadManager.js` implements the same *shape* of concurrency in the browser: a
-fixed number of "worker" async functions share one `nextIndex` cursor and race to claim the next
-part, capping how many `XMLHttpRequest`s are in flight at once (default 4) — a hand-rolled version
-of the same bounded-worker-pool idea used in Java, without an extra dependency.
+| --- | --- | --- |
+| POST | `/api/onboarding/applications` | Create a synthetic `DRAFT` application |
+| GET | `/api/onboarding/applications/{publicReference}` | Safe application status |
+| GET | `/api/onboarding/applications/{publicReference}/resume` | Resume pointer, wizard screen, completion %, activity statuses, saved fields |
+| PUT | `/api/onboarding/applications/{publicReference}/activities/{n}` | Save an activity's draft field values (idempotent) |
+| POST | `/api/onboarding/applications/{publicReference}/activities/{n}/continue` | Validate/complete an activity (idempotent) |
+| POST | `/api/onboarding/applications/{publicReference}/capture-links` | Issue a one-time identity-capture link |
+| GET | `/api/onboarding/captures/{token}` | Validate a capture token, return capture-step status |
+| PUT | `/api/onboarding/captures/{token}/documents/{front\|back}` | Validate/store a document image; triggers mock validation once both sides are in |
 
 ## Project structure
 
 ```
-backend/   Spring Boot 3 / Java 21 — see src/main/java/com/demo/upload/{domain,repository,storage,service,web,config}
-react/     Vite + React — see src/upload/{api.js,chunkFile.js,uploadManager.js,UploadPage.jsx}
-nginx/     reverse proxy config, routes / to frontend and /api/ to backend
-docker-compose.yml   3 services: backend, frontend, nginx
+backend/   Spring Boot 3 / Java 21
+           src/main/java/com/falcon/onboarding/  the onboarding POC (domain, workflow, task, repository/jdbc, web)
+           src/main/java/com/falcon/upload/       the unrelated file-transfer demo
+react/     Vite + React
+           src/onboarding/   OnboardingWizard, WelcomePage, PersonalInformationPage, DocumentCapturePage, mockAssistant
+           src/upload/       the unrelated file-transfer demo
+infra/     Cloud deployment adapters (currently: Cloudflare Workers/R2/D1 for the file-transfer demo — see infra/README.md)
+docs/brokerage-onboarding/   requirements, architecture, and the 21-activity/8-screen wizard design
+context.md   durable decision log and implementation-status record for the onboarding POC
 ```
-
-## Log
-
-- **2026-08-09** — Initial build. Backend and frontend compile and run cleanly via
-  `docker compose up --build`; all three containers (backend, frontend, nginx) start and pass a
-  basic connectivity check. Actual end-to-end upload to R2 is currently blocked by an R2-side
-  account setup issue (see "Running it" above) — the R2 S3 endpoint's TLS handshake fails for this
-  account, and the API token returns an authentication error on R2-specific calls, so R2 appears to
-  need to be enabled and/or the token needs broader permissions before a real upload can be
-  verified end-to-end.
