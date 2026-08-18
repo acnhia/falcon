@@ -1,17 +1,22 @@
-import { ApplicationNotFoundError, InvalidCaptureLinkError, OnboardingEnv, TaskValidationError, jsonResponse } from './db'
+import { ApplicationNotFoundError, InvalidCaptureLinkError, TaskValidationError, jsonResponse } from './db'
 import { createApplication, getApplicationStatus, getResumeState } from './applications'
 import { saveActivityDraft, continueActivity } from './activities'
 import { IllegalStateTransitionError, getCaptureContext, issueCaptureLink, uploadDocument } from './captures'
 import { DocumentValidationError } from './documentValidation'
+import { AssistantEnv, handleAssistantExtractRequest } from './assistant'
 
 /** Allowlisted onboarding routes - the Cloudflare-deployment counterpart of OnboardingController/CaptureController. */
-export async function handleOnboardingRequest(request: Request, env: OnboardingEnv): Promise<Response> {
+export async function handleOnboardingRequest(request: Request, env: AssistantEnv): Promise<Response> {
   const url = new URL(request.url)
   const path = url.pathname
 
   try {
     if (request.method === 'POST' && path === '/api/onboarding/applications') {
       return jsonResponse(await createApplication(env), 200)
+    }
+
+    if (request.method === 'POST' && path === '/api/onboarding/assistant/extract') {
+      return handleAssistantExtractRequest(request, env)
     }
 
     const resumeMatch = path.match(/^\/api\/onboarding\/applications\/([^/]+)\/resume$/)

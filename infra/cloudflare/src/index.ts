@@ -6,6 +6,7 @@ interface Env {
   STORAGE_QUOTA: DurableObjectNamespace<StorageQuota>
   TRANSFERS: D1Database
   ONBOARDING_DB: D1Database
+  OPENAI_API_KEY?: string
   ASSETS: Fetcher
 }
 

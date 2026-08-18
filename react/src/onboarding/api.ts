@@ -75,6 +75,24 @@ export async function getResumeState(publicReference: string): Promise<ResumeSta
   return res.json()
 }
 
+export interface VoiceSuggestionResponse {
+  suggestion: { fieldKey: string; value: string; message: string } | null
+}
+
+/** Sends a recognized speech transcript server-side for field extraction. The AI provider key never leaves the server. */
+export async function requestVoiceSuggestion(
+  transcript: string,
+  fieldValues: Record<string, string>,
+): Promise<VoiceSuggestionResponse> {
+  const res = await fetch(`${API_BASE}/onboarding/assistant/extract`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ transcript, fieldValues }),
+  })
+  if (!res.ok) throw await responseError(res, 'Voice assistant is unavailable right now')
+  return res.json()
+}
+
 export async function saveActivityDraft(
   publicReference: string,
   activityNumber: number,

@@ -24,6 +24,7 @@ run('npm', ['run', 'build'], reactDirectory, 'React production build')
 run('node', ['scripts/provision-r2.mjs'], cloudflareDirectory, 'R2 bucket provisioning')
 run('node', ['scripts/provision-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (file-transfer)')
 run('node', ['scripts/provision-onboarding-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (onboarding)')
+run('node', ['scripts/provision-openai-secret.mjs'], cloudflareDirectory, 'Voice-assistant secret provisioning (optional)')
 
 run('npx', ['wrangler', 'deploy'], cloudflareDirectory, 'Worker deployment', {
   CLOUDFLARE_API_TOKEN: config.api_token,

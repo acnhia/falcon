@@ -109,6 +109,8 @@ This is a **demonstration only**, not a production brokerage service.
 | 2026-08-17 | Rename the Java root package from `com.filemanagement` to `com.falcon` across `backend/src/main` and `backend/src/test` (96 files) plus `pom.xml`'s `groupId`. | User-requested mid-session; mechanical rename, no behavior change. Verified with a full `mvn test` run (all prior tests still pass under the new package). | Active; supersedes the 2026-08-12 `com.filemanagement` row above |
 | 2026-08-17 | Begin the wizard/workflow "foundation" phase: relational schema (JDBC + H2, not JPA — matches the codebase's existing raw-SQL style, no prior ORM dependency), workflow/resume engine, and wizard screens 1-2 only; migrate the existing capture flow onto the new schema. Defer screens 3-8, market ticker, and the full assistant module. | Implementing all 21 activities / 12 tables / 5 new modules in one pass isn't compatible with this repo's TDD mandate. Screen 2's mock chat/voice UI is included in this phase (client-side deterministic mock only, no backend AI call) since `REQUIREMENTS.md`'s "Personal-information workspace POC" section requires it for the same screen being built. | Active — implementation starting |
 | 2026-08-18 | Deploy the onboarding API (activities 1-4, identity capture) to Cloudflare as a second, parallel TypeScript implementation on the *existing* Worker (`infra/cloudflare/src/onboarding/`), with its own D1 database (`ONBOARDING_DB`) and the existing R2 bucket under a new `onboarding/` prefix — not a separate Worker/deployable, and not a proxy to a separately-hosted Java service. | Cloudflare Workers cannot run the Spring Boot JAR (no JVM); the user explicitly wants the frontend calling Workers directly, not a JVM host. Reused the existing "package/route isolation inside one deployable, not a new one" precedent from the Java/React layers rather than doubling Worker/wrangler scaffolding for a POC slice. The Java backend stays the reference implementation for local/container dev. One documented gap: document validation uses header-based magic-byte/dimension parsing (JPEG/PNG) instead of full image decode, since Workers has no `ImageIO` equivalent. | Active — implemented and tested (17 Worker tests passing) |
+| 2026-08-18 | Replace the personal-information screen's mock voice control with real browser speech-to-text (Web Speech API) plus a real, narrow-scope OpenAI extraction call (`gpt-4o-mini`, one field per utterance) on the Cloudflare Worker; add a pulsing "orb" UI indicator for listening/thinking states. | User tried the mock voice control, found it did nothing real, and confirmed they have an approved OpenAI API account. Kept scope narrow (one structured extraction call, no general chat/TTS) and the key server-side-only (Worker secret) per `REQUIREMENTS.md`. Unsupported browsers (Safari/Firefox lack the Web Speech API) and denied mic permission both fall back to the existing fully-functional text-chat path. | Active — implemented and tested (62 React tests, 6 new Worker assistant tests) |
+| 2026-08-18 | Declined a request to match Robinhood's exact black/green color palette from a supplied screenshot; adjusted the wizard's dark theme to a deliberately distinct palette instead (charcoal-leaning `#0d0f13` background, teal-leaning `#2dd4bf` accent, was `#0f1115`/`#34d399`). | `REQUIREMENTS.md`'s "Personal-information workspace POC" section explicitly requires an original UI and forbids copying Robinhood's (or any company's) branding/trade dress - flagged directly rather than silently complying or silently ignoring the request. User agreed to keep a similar dark-plus-green mood with a distinct palette rather than amending that requirement. | Active |
 
 ## Safety and compliance boundaries
 
@@ -294,9 +296,9 @@ It is a design and implementation reference only, not a production KYC, account-
 
 ### AI and voice
 
-- Initial runtime mode: `mock`.
 - A paid ChatGPT subscription does not fund API calls. ChatGPT and OpenAI API billing are separate.
-- Future live mode needs a separately billed OpenAI API account, server-side `OPENAI_API_KEY`, explicit spending limit, rate limiting, audit/redaction controls, and provider activation.
+- **First live AI integration (2026-08-18):** the personal-information screen's voice control now does real speech-to-text (browser's built-in `SpeechRecognition`/`webkitSpeechRecognition` Web API - free, no key, real mic permission prompt) and a real server-side extraction call (`POST /api/onboarding/assistant/extract` on the Cloudflare Worker, `infra/cloudflare/src/onboarding/assistant.ts`) that asks OpenAI (`gpt-4o-mini`, JSON-mode) to map a spoken sentence to one known form field. Scope is deliberately narrow: one structured extraction call, not general chat, no text-to-speech. `OPENAI_API_KEY` is a Worker secret (`wrangler secret put`, never in `wrangler.jsonc`, never sent to the browser); `scripts/provision-openai-secret.mjs` provisions it from the root `.env` and is a no-op (voice returns a safe 503) if absent. Transcripts are never logged. The extracted suggestion still requires an explicit "Use this" click before it fills a field - unchanged from the original mock behavior.
+- Everything else AI/voice-related (general conversational guidance, other wizard screens, text-to-speech) remains `mock`-only; this narrow extraction path is the only live call in the codebase.
 
 ### Capture-link delivery
 
@@ -322,8 +324,8 @@ It is a design and implementation reference only, not a production KYC, account-
 | `VALIDATION_MODE` | `mock` | Live validation requires explicit approval. |
 | `MARKET_DATA_MODE` | `fixture` | Delayed/real-time requires approved entitlement. |
 | `TWELVE_DATA_API_KEY` | Only when enabled | Server-only secret. |
-| `AI_MODE` | `mock` | Live provider disabled by default. |
-| `OPENAI_API_KEY` | Only when enabled | Server-only secret; separately billed API account. |
+| `AI_MODE` | `mock` | Live provider disabled by default for general chat/other screens. |
+| `OPENAI_API_KEY` | Live since 2026-08-18 | Cloudflare Worker secret (`wrangler secret put`), narrow scope: personal-information voice field-extraction only. Never in `wrangler.jsonc`/committed files/browser code. |
 | `CAPTURE_LINK_TTL` | Short bounded duration | Environment-configurable. |
 | `EMAIL_DELIVERY_MODE` | `copy-link` locally | Provider credentials remain server-side. |
 
@@ -355,7 +357,7 @@ It is a design and implementation reference only, not a production KYC, account-
 
 Do **not** put these values in this file or chat. Use a local `.env` file or managed secret store.
 
-1. An approved separate OpenAI API billing account and spend limit for live AI/voice.
+1. ~~An approved separate OpenAI API billing account and spend limit for live AI/voice.~~ Done 2026-08-18 - narrow-scope voice field-extraction only (see "AI and voice" above); general chat, other screens, and text-to-speech remain mock.
 2. A Twelve Data plan/key and confirmation of permitted delayed/real-time client display for the selected symbols.
 3. Email or SMS provider, sender domain, and consent model if capture links will be delivered outside the local UI.
 4. Dedicated demo storage/database resources and deployment permissions.

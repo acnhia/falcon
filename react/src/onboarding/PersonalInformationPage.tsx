@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { saveActivityDraft, continueActivity, type ResumeStateResponse } from './api'
+import { useEffect, useRef, useState } from 'react'
+import { saveActivityDraft, continueActivity, requestVoiceSuggestion, type ResumeStateResponse } from './api'
 import { suggestionFor, REQUIRED_FIELD_ORDER, OPTIONAL_FIELD_ORDER, type FieldSuggestion } from './mockAssistant'
+import { isSpeechRecognitionSupported, startListening, stopListening } from './speechRecognition'
 
 interface Props {
   publicReference: string
@@ -16,6 +17,8 @@ interface ChatMessage {
   suggestion?: FieldSuggestion
 }
 
+type VoiceState = 'idle' | 'listening' | 'thinking'
+
 const FIELD_LABEL: Record<string, string> = {
   legalFirstName: 'Legal first name',
   legalLastName: 'Legal last name',
@@ -26,6 +29,8 @@ const FIELD_LABEL: Record<string, string> = {
   preferredLastName: 'Preferred last name',
   phone: 'Phone',
 }
+
+const voiceSupported = isSpeechRecognitionSupported()
 
 export default function PersonalInformationPage({
   publicReference,
@@ -45,52 +50,78 @@ export default function PersonalInformationPage({
       text: 'Hi! I can suggest synthetic demo values for this form. Nothing you enter here is a real identity.',
     },
   ])
-  const [listening, setListening] = useState(false)
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle')
+  const recognitionRef = useRef<ReturnType<typeof startListening>>(null)
+
+  useEffect(() => {
+    return () => stopListening(recognitionRef.current)
+  }, [])
 
   function updateField(key: string, value: string) {
     setFields((prev) => ({ ...prev, [key]: value }))
   }
 
-  function pushAssistantSuggestion(source: 'text' | 'voice') {
-    const suggestion = suggestionFor(focusedField, fields)
-    if (!suggestion) {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', text: 'Every field already has a value - nothing to suggest.' },
-      ])
-      return
-    }
-    if (source === 'voice') {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'user', text: '(mock voice) Can you suggest a value?' },
-      ])
-    }
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion },
-    ])
+  function addMessage(message: ChatMessage) {
+    setMessages((prev) => [...prev, message])
   }
 
   function handleAskAssistant() {
-    pushAssistantSuggestion('text')
+    const suggestion = suggestionFor(focusedField, fields)
+    if (!suggestion) {
+      addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Every field already has a value - nothing to suggest.' })
+      return
+    }
+    addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion })
   }
 
   function handleMicClick() {
-    if (!listening) {
-      setListening(true)
+    if (voiceState !== 'idle') {
+      stopListening(recognitionRef.current)
+      recognitionRef.current = null
+      setVoiceState('idle')
       return
     }
-    setListening(false)
-    pushAssistantSuggestion('voice')
+    setVoiceState('listening')
+    recognitionRef.current = startListening({
+      onResult: handleVoiceTranscript,
+      onError: handleVoiceError,
+      onEnd: () => setVoiceState((current) => (current === 'listening' ? 'idle' : current)),
+    })
+  }
+
+  async function handleVoiceTranscript(transcript: string) {
+    setVoiceState('thinking')
+    addMessage({ id: crypto.randomUUID(), role: 'user', text: transcript })
+    try {
+      const { suggestion } = await requestVoiceSuggestion(transcript, fields)
+      if (suggestion) {
+        addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion })
+      } else {
+        addMessage({
+          id: crypto.randomUUID(), role: 'assistant',
+          text: "I didn't catch a value for any known field there - try again, or use the text form directly.",
+        })
+      }
+    } catch (reason) {
+      addMessage({ id: crypto.randomUUID(), role: 'assistant', text: (reason as Error).message })
+    } finally {
+      setVoiceState('idle')
+    }
+  }
+
+  function handleVoiceError(errorCode: string) {
+    const text = errorCode === 'unsupported'
+      ? "Voice input isn't supported in this browser - you can still use the text chat below."
+      : errorCode === 'not-allowed'
+        ? 'Microphone permission was denied - you can still use the text chat below.'
+        : 'Voice input had a problem - you can still use the text chat below.'
+    addMessage({ id: crypto.randomUUID(), role: 'assistant', text })
+    setVoiceState('idle')
   }
 
   function handleUseSuggestion(suggestion: FieldSuggestion) {
     updateField(suggestion.fieldKey, suggestion.value)
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'assistant', text: `Applied to ${FIELD_LABEL[suggestion.fieldKey]}.` },
-    ])
+    addMessage({ id: crypto.randomUUID(), role: 'assistant', text: `Applied to ${FIELD_LABEL[suggestion.fieldKey] ?? suggestion.fieldKey}.` })
   }
 
   async function handleSaveDraft() {
@@ -123,7 +154,8 @@ export default function PersonalInformationPage({
   return (
     <main className="wizard-dark wizard-workspace">
       <p className="wizard-disclosure">
-        Demonstration only - synthetic data, mock chat, and mock voice. No real identity or financial advice.
+        Demonstration only - synthetic data. Voice input uses your browser's built-in speech recognition; any
+        suggested value still requires your explicit approval before it fills a field.
       </p>
       <h1>Personal information — stage 2 of 21</h1>
       <div className="wizard-progress-overall">
@@ -178,7 +210,7 @@ export default function PersonalInformationPage({
         </section>
 
         <aside className="wizard-chat-panel" aria-label="Guided demo assistant">
-          <h2>Guided assistant (mock)</h2>
+          <h2>Guided assistant</h2>
           <ul className="wizard-chat-log" aria-live="polite">
             {messages.map((message) => (
               <li key={message.id} className={`wizard-chat-message wizard-chat-${message.role}`}>
@@ -194,14 +226,19 @@ export default function PersonalInformationPage({
           <button type="button" onClick={handleAskAssistant}>
             Ask for a suggestion
           </button>
-          <button
-            type="button"
-            className="wizard-mic-button"
-            aria-pressed={listening}
-            onClick={handleMicClick}
-          >
-            {listening ? '🎤 Listening… (mock, click to stop)' : '🎤 Ask with voice (mock)'}
-          </button>
+
+          {voiceSupported ? (
+            <div className="wizard-voice-control">
+              {voiceState !== 'idle' && <div className={`voice-orb voice-orb-${voiceState}`} aria-hidden="true" />}
+              <button type="button" className="wizard-mic-button" aria-pressed={voiceState === 'listening'} onClick={handleMicClick}>
+                {voiceState === 'listening' && '🎤 Listening… (click to stop)'}
+                {voiceState === 'thinking' && '🎤 Thinking…'}
+                {voiceState === 'idle' && '🎤 Ask with voice'}
+              </button>
+            </div>
+          ) : (
+            <p className="wizard-voice-unsupported">Voice input isn't supported in this browser - use the text chat above.</p>
+          )}
         </aside>
       </div>
     </main>
