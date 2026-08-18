@@ -114,16 +114,16 @@ button:disabled {
 /* Onboarding wizard: always dark, regardless of system theme - a deliberate,
    original fintech look distinct from the file-transfer demo above. */
 .wizard-dark {
-  /* Deliberately distinct from any specific competitor's palette (e.g. a warmer,
-     charcoal-leaning near-black rather than pure black, and a teal-leaning
-     green rather than yellow-green) - see REQUIREMENTS.md: "must be an
+  /* Bold true-black + vivid-green look, but with specific values distinct from
+     any named competitor's brand palette (e.g. a true green rather than
+     Robinhood's yellow-lime green) - see REQUIREMENTS.md: "must be an
      original UI... do not copy Robinhood or any other company's... trade dress." */
-  --wizard-bg: #0d0f13;
-  --wizard-panel: #181c22;
-  --wizard-border: #2c323c;
-  --wizard-text: #e6e8eb;
-  --wizard-text-dim: #98a1ad;
-  --wizard-accent: #2dd4bf;
+  --wizard-bg: #050505;
+  --wizard-panel: #111111;
+  --wizard-border: #262626;
+  --wizard-text: #f2f2f2;
+  --wizard-text-dim: #9a9a9a;
+  --wizard-accent: #22c55e;
 
   background: var(--wizard-bg);
   color: var(--wizard-text);
