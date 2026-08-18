@@ -62,48 +62,58 @@ export async function startRealtimeSession({ onSuggestion, onStateChange, onErro
   }
 
   const peerConnection = new RTCPeerConnection()
-  micStream.getTracks().forEach((track) => peerConnection.addTrack(track, micStream))
-
-  const remoteAudio = new Audio()
-  remoteAudio.autoplay = true
-  peerConnection.ontrack = (event) => {
-    remoteAudio.srcObject = event.streams[0]
-  }
-
-  const dataChannel = peerConnection.createDataChannel('oai-events')
-  dataChannel.onmessage = (event) => {
-    handleRealtimeEvent(event.data, dataChannel, onSuggestion)
-  }
-
-  peerConnection.onconnectionstatechange = () => {
-    if (peerConnection.connectionState === 'connected') onStateChange('open')
-    if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') onStateChange('error')
-    if (peerConnection.connectionState === 'closed') onStateChange('closed')
-  }
-
-  const offer = await peerConnection.createOffer()
-  await peerConnection.setLocalDescription(offer)
-
-  const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
-    method: 'POST',
-    body: offer.sdp,
-    headers: { authorization: `Bearer ${session.clientSecret}`, 'content-type': 'application/sdp' },
-  })
-  if (!sdpResponse.ok) {
+  const cleanup = () => {
     micStream.getTracks().forEach((track) => track.stop())
     peerConnection.close()
-    onError(`Voice connection failed (${sdpResponse.status})`)
-    return null
   }
-  await peerConnection.setRemoteDescription({ type: 'answer', sdp: await sdpResponse.text() })
 
-  return {
-    close: () => {
-      micStream.getTracks().forEach((track) => track.stop())
-      dataChannel.close()
-      peerConnection.close()
-      onStateChange('closed')
-    },
+  try {
+    micStream.getTracks().forEach((track) => peerConnection.addTrack(track, micStream))
+
+    const remoteAudio = new Audio()
+    remoteAudio.autoplay = true
+    peerConnection.ontrack = (event) => {
+      remoteAudio.srcObject = event.streams[0]
+    }
+
+    const dataChannel = peerConnection.createDataChannel('oai-events')
+    dataChannel.onmessage = (event) => {
+      handleRealtimeEvent(event.data, dataChannel, onSuggestion)
+    }
+
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === 'connected') onStateChange('open')
+      if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') onStateChange('error')
+      if (peerConnection.connectionState === 'closed') onStateChange('closed')
+    }
+
+    const offer = await peerConnection.createOffer()
+    await peerConnection.setLocalDescription(offer)
+
+    const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
+      method: 'POST',
+      body: offer.sdp,
+      headers: { authorization: `Bearer ${session.clientSecret}`, 'content-type': 'application/sdp' },
+    })
+    if (!sdpResponse.ok) {
+      const detail = await sdpResponse.text().catch(() => '')
+      cleanup()
+      onError(`Voice connection failed (${sdpResponse.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`)
+      return null
+    }
+    await peerConnection.setRemoteDescription({ type: 'answer', sdp: await sdpResponse.text() })
+
+    return {
+      close: () => {
+        cleanup()
+        dataChannel.close()
+        onStateChange('closed')
+      },
+    }
+  } catch (reason) {
+    cleanup()
+    onError(`Voice connection failed: ${(reason as Error).message}`)
+    return null
   }
 }
 

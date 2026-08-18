@@ -119,7 +119,7 @@ export default function PersonalInformationPage({
       ? "Voice input isn't supported in this browser - you can still use the text chat below."
       : errorCode === 'not-allowed'
         ? 'Microphone permission was denied - you can still use the text chat below.'
-        : 'Voice input had a problem - you can still use the text chat below.'
+        : `Voice input had a problem (${errorCode}) - you can still use the text chat below.`
     addMessage({ id: crypto.randomUUID(), role: 'assistant', text })
     setVoiceState('idle')
   }
