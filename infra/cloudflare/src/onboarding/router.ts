@@ -3,7 +3,7 @@ import { createApplication, getApplicationStatus, getResumeState } from './appli
 import { saveActivityDraft, continueActivity } from './activities'
 import { IllegalStateTransitionError, getCaptureContext, issueCaptureLink, uploadDocument } from './captures'
 import { DocumentValidationError } from './documentValidation'
-import { AssistantEnv, handleAssistantExtractRequest } from './assistant'
+import { AssistantEnv, handleRealtimeSessionRequest } from './assistant'
 
 /** Allowlisted onboarding routes - the Cloudflare-deployment counterpart of OnboardingController/CaptureController. */
 export async function handleOnboardingRequest(request: Request, env: AssistantEnv): Promise<Response> {
@@ -15,8 +15,8 @@ export async function handleOnboardingRequest(request: Request, env: AssistantEn
       return jsonResponse(await createApplication(env), 200)
     }
 
-    if (request.method === 'POST' && path === '/api/onboarding/assistant/extract') {
-      return handleAssistantExtractRequest(request, env)
+    if (request.method === 'POST' && path === '/api/onboarding/assistant/realtime-session') {
+      return handleRealtimeSessionRequest(request, env)
     }
 
     const resumeMatch = path.match(/^\/api\/onboarding\/applications\/([^/]+)\/resume$/)

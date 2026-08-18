@@ -4,21 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({
   saveActivityDraft: vi.fn(),
   continueActivity: vi.fn(),
-  requestVoiceSuggestion: vi.fn(),
 }))
-const speech = vi.hoisted(() => ({
-  isSpeechRecognitionSupported: vi.fn(() => true),
-  startListening: vi.fn(),
-  stopListening: vi.fn(),
+const voice = vi.hoisted(() => ({
+  isRealtimeVoiceSupported: vi.fn(() => true),
+  startRealtimeSession: vi.fn(),
 }))
 
 vi.mock('./api', () => api)
-vi.mock('./speechRecognition', () => speech)
+vi.mock('./realtimeVoice', () => voice)
 
 describe('PersonalInformationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    speech.isSpeechRecognitionSupported.mockReturnValue(true)
+    voice.isRealtimeVoiceSupported.mockReturnValue(true)
+    voice.startRealtimeSession.mockResolvedValue({ close: vi.fn() })
   })
 
   afterEach(() => {
@@ -49,7 +48,7 @@ describe('PersonalInformationPage', () => {
   it('shows a visible mock-assistance disclosure', async () => {
     await renderPage()
 
-    screen.getByText(/browser's built-in speech recognition/i)
+    screen.getByText(/live AI conversation/i)
   })
 
   it('asking the assistant for a suggestion never changes the field until "Use this" is clicked', async () => {
@@ -76,29 +75,28 @@ describe('PersonalInformationPage', () => {
     expect(emailInput.value).toContain('@')
   })
 
-  it('clicking the mic button starts real speech recognition', async () => {
+  it('clicking the mic button starts a realtime voice session and reflects the live state', async () => {
     await renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalledWith(expect.objectContaining({
+      onSuggestion: expect.any(Function), onStateChange: expect.any(Function), onError: expect.any(Function),
+    })))
 
-    expect(speech.startListening).toHaveBeenCalledWith(expect.objectContaining({
-      onResult: expect.any(Function), onError: expect.any(Function), onEnd: expect.any(Function),
-    }))
-    expect(screen.getByRole('button', { name: /listening/i }).getAttribute('aria-pressed')).toBe('true')
+    const { onStateChange } = voice.startRealtimeSession.mock.calls[0][0]
+    onStateChange('open')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /end voice session/i }).getAttribute('aria-pressed')).toBe('true'))
   })
 
-  it('a recognized transcript posts a real chat message and requests a server-side suggestion', async () => {
-    api.requestVoiceSuggestion.mockResolvedValue({
-      suggestion: { fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it - September 13, 1981.' },
-    })
+  it('a suggest_field_value tool call shows a suggestion that still requires "Use this" to fill the field', async () => {
     await renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
-    const { onResult } = speech.startListening.mock.calls[0][0]
-    onResult('my birthday is sept 13 81')
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
 
-    await waitFor(() => screen.getByText('my birthday is sept 13 81'))
-    expect(api.requestVoiceSuggestion).toHaveBeenCalledWith('my birthday is sept 13 81', expect.any(Object))
+    const { onSuggestion } = voice.startRealtimeSession.mock.calls[0][0]
+    onSuggestion({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it - September 13, 1981.' })
 
     await waitFor(() => screen.getByText('Got it - September 13, 1981.'))
     const dobInput = screen.getByLabelText(/date of birth/i) as HTMLInputElement
@@ -108,11 +106,29 @@ describe('PersonalInformationPage', () => {
     expect(dobInput.value).toBe('1981-09-13')
   })
 
+  it('clicking again while live ends the voice session', async () => {
+    const close = vi.fn()
+    voice.startRealtimeSession.mockResolvedValue({ close })
+    await renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
+    const { onStateChange } = voice.startRealtimeSession.mock.calls[0][0]
+    onStateChange('open')
+    await waitFor(() => screen.getByRole('button', { name: /end voice session/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /end voice session/i }))
+
+    expect(close).toHaveBeenCalled()
+    await waitFor(() => screen.getByRole('button', { name: /^🎤 ask with voice$/i }))
+  })
+
   it('shows a friendly message and stays functional when the browser denies microphone permission', async () => {
     await renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: /ask with voice/i }))
-    const { onError } = speech.startListening.mock.calls[0][0]
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
+    const { onError } = voice.startRealtimeSession.mock.calls[0][0]
     onError('not-allowed')
 
     await waitFor(() => screen.getByText(/permission was denied/i))
@@ -121,8 +137,8 @@ describe('PersonalInformationPage', () => {
     screen.getByRole('button', { name: /use this/i })
   })
 
-  it('hides the mic button and keeps the text chat working when speech recognition is unsupported', async () => {
-    speech.isSpeechRecognitionSupported.mockReturnValue(false)
+  it('hides the mic button and keeps the text chat working when realtime voice is unsupported', async () => {
+    voice.isRealtimeVoiceSupported.mockReturnValue(false)
     await renderPage()
 
     expect(screen.queryByRole('button', { name: /ask with voice/i })).toBeNull()

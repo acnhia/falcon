@@ -277,12 +277,12 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.voice-orb-listening {
-  animation: voice-pulse 1.1s ease-in-out infinite;
+.voice-orb-connecting {
+  animation: voice-spin 1s linear infinite, voice-pulse 1.6s ease-in-out infinite;
 }
 
-.voice-orb-thinking {
-  animation: voice-spin 1s linear infinite, voice-pulse 1.6s ease-in-out infinite;
+.voice-orb-live {
+  animation: voice-pulse 1.1s ease-in-out infinite;
 }
 
 @keyframes voice-pulse {

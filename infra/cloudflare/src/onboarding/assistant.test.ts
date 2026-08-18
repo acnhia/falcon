@@ -1,51 +1,35 @@
 import { SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import { buildExtractionPrompt, parseExtractionResponse } from './assistant'
+import { buildRealtimeSessionRequest } from './assistant'
 
-describe('buildExtractionPrompt', () => {
-  it('includes the field catalogue and the transcript', () => {
-    const messages = buildExtractionPrompt('my birthday is sept 13 81', { legalFirstName: 'Ada' })
+describe('buildRealtimeSessionRequest', () => {
+  it('declares the suggest_field_value tool with the known field keys', () => {
+    const body = buildRealtimeSessionRequest()
+    const tool = body.session.tools[0]
 
-    expect(messages[0].role).toBe('system')
-    expect(messages[0].content).toContain('dateOfBirth')
-    expect(messages[0].content).toContain('[current value: Ada]')
-    expect(messages[1]).toEqual({ role: 'user', content: 'my birthday is sept 13 81' })
+    expect(tool.name).toBe('suggest_field_value')
+    expect(tool.parameters.properties.fieldKey.enum).toContain('dateOfBirth')
+    expect(tool.parameters.required).toEqual(['fieldKey', 'value', 'message'])
+  })
+
+  it('never claims to give financial/legal advice and stays synthetic-data scoped', () => {
+    const body = buildRealtimeSessionRequest()
+
+    expect(body.session.instructions).toContain('demonstration only')
+    expect(body.session.instructions).toContain('never')
+  })
+
+  it('specifies a realtime session type and a model', () => {
+    const body = buildRealtimeSessionRequest()
+
+    expect(body.session.type).toBe('realtime')
+    expect(body.session.model).toBeTruthy()
   })
 })
 
-describe('parseExtractionResponse', () => {
-  it('accepts a well-formed suggestion for a known field', () => {
-    const result = parseExtractionResponse(JSON.stringify({
-      fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it - September 13, 1981.',
-    }))
-
-    expect(result).toEqual({ fieldKey: 'dateOfBirth', value: '1981-09-13', message: 'Got it - September 13, 1981.' })
-  })
-
-  it('returns null for an unknown field key', () => {
-    const result = parseExtractionResponse(JSON.stringify({ fieldKey: 'ssn', value: '123-45-6789', message: 'x' }))
-
-    expect(result).toBeNull()
-  })
-
-  it('returns null when the model reports no confident match', () => {
-    const result = parseExtractionResponse(JSON.stringify({ fieldKey: null, value: null, message: 'Not sure what you meant.' }))
-
-    expect(result).toBeNull()
-  })
-
-  it('returns null for malformed JSON rather than throwing', () => {
-    expect(parseExtractionResponse('not json')).toBeNull()
-  })
-})
-
-describe('POST /api/onboarding/assistant/extract', () => {
+describe('POST /api/onboarding/assistant/realtime-session', () => {
   it('returns a safe 503 when the assistant is not configured, without calling OpenAI', async () => {
-    const res = await SELF.fetch('https://example.com/api/onboarding/assistant/extract', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ transcript: 'my birthday is sept 13 81', fieldValues: {} }),
-    })
+    const res = await SELF.fetch('https://example.com/api/onboarding/assistant/realtime-session', { method: 'POST' })
 
     expect(res.status).toBe(503)
     const body = await res.json()

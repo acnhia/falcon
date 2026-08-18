@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { saveActivityDraft, continueActivity, requestVoiceSuggestion, type ResumeStateResponse } from './api'
+import { saveActivityDraft, continueActivity, type ResumeStateResponse } from './api'
 import { suggestionFor, REQUIRED_FIELD_ORDER, OPTIONAL_FIELD_ORDER, type FieldSuggestion } from './mockAssistant'
-import { isSpeechRecognitionSupported, startListening, stopListening } from './speechRecognition'
+import { isRealtimeVoiceSupported, startRealtimeSession, type RealtimeVoiceSession } from './realtimeVoice'
+
+const MAX_VOICE_SESSION_MS = 3 * 60_000
 
 interface Props {
   publicReference: string
@@ -17,7 +19,7 @@ interface ChatMessage {
   suggestion?: FieldSuggestion
 }
 
-type VoiceState = 'idle' | 'listening' | 'thinking'
+type VoiceState = 'idle' | 'connecting' | 'live'
 
 const FIELD_LABEL: Record<string, string> = {
   legalFirstName: 'Legal first name',
@@ -30,7 +32,7 @@ const FIELD_LABEL: Record<string, string> = {
   phone: 'Phone',
 }
 
-const voiceSupported = isSpeechRecognitionSupported()
+const voiceSupported = isRealtimeVoiceSupported()
 
 export default function PersonalInformationPage({
   publicReference,
@@ -51,10 +53,11 @@ export default function PersonalInformationPage({
     },
   ])
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
-  const recognitionRef = useRef<ReturnType<typeof startListening>>(null)
+  const sessionRef = useRef<RealtimeVoiceSession | null>(null)
+  const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    return () => stopListening(recognitionRef.current)
+    return () => sessionRef.current?.close()
   }, [])
 
   function updateField(key: string, value: string) {
@@ -74,38 +77,40 @@ export default function PersonalInformationPage({
     addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion })
   }
 
-  function handleMicClick() {
-    if (voiceState !== 'idle') {
-      stopListening(recognitionRef.current)
-      recognitionRef.current = null
-      setVoiceState('idle')
-      return
+  function endVoiceSession() {
+    sessionRef.current?.close()
+    sessionRef.current = null
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current)
+      sessionTimeoutRef.current = null
     }
-    setVoiceState('listening')
-    recognitionRef.current = startListening({
-      onResult: handleVoiceTranscript,
-      onError: handleVoiceError,
-      onEnd: () => setVoiceState((current) => (current === 'listening' ? 'idle' : current)),
-    })
+    setVoiceState('idle')
   }
 
-  async function handleVoiceTranscript(transcript: string) {
-    setVoiceState('thinking')
-    addMessage({ id: crypto.randomUUID(), role: 'user', text: transcript })
-    try {
-      const { suggestion } = await requestVoiceSuggestion(transcript, fields)
-      if (suggestion) {
-        addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion })
-      } else {
-        addMessage({
-          id: crypto.randomUUID(), role: 'assistant',
-          text: "I didn't catch a value for any known field there - try again, or use the text form directly.",
-        })
-      }
-    } catch (reason) {
-      addMessage({ id: crypto.randomUUID(), role: 'assistant', text: (reason as Error).message })
-    } finally {
-      setVoiceState('idle')
+  async function handleMicClick() {
+    if (voiceState !== 'idle') {
+      endVoiceSession()
+      return
+    }
+    setVoiceState('connecting')
+    const session = await startRealtimeSession({
+      onSuggestion: (suggestion) => addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion }),
+      onStateChange: (state) => {
+        if (state === 'open') setVoiceState('live')
+        if (state === 'error') {
+          addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Voice session had a problem - you can still use the text chat below.' })
+          setVoiceState('idle')
+        }
+        if (state === 'closed') setVoiceState('idle')
+      },
+      onError: handleVoiceError,
+    })
+    sessionRef.current = session
+    if (session) {
+      sessionTimeoutRef.current = setTimeout(() => {
+        addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Ending the voice session after 3 minutes to limit usage.' })
+        endVoiceSession()
+      }, MAX_VOICE_SESSION_MS)
     }
   }
 
@@ -154,8 +159,8 @@ export default function PersonalInformationPage({
   return (
     <main className="wizard-dark wizard-workspace">
       <p className="wizard-disclosure">
-        Demonstration only - synthetic data. Voice input uses your browser's built-in speech recognition; any
-        suggested value still requires your explicit approval before it fills a field.
+        Demonstration only - synthetic data. Voice sessions are a live AI conversation (ends automatically after
+        3 minutes); any suggested value still requires your explicit approval before it fills a field.
       </p>
       <h1>Personal information — stage 2 of 21</h1>
       <div className="wizard-progress-overall">
@@ -230,9 +235,9 @@ export default function PersonalInformationPage({
           {voiceSupported ? (
             <div className="wizard-voice-control">
               {voiceState !== 'idle' && <div className={`voice-orb voice-orb-${voiceState}`} aria-hidden="true" />}
-              <button type="button" className="wizard-mic-button" aria-pressed={voiceState === 'listening'} onClick={handleMicClick}>
-                {voiceState === 'listening' && '🎤 Listening… (click to stop)'}
-                {voiceState === 'thinking' && '🎤 Thinking…'}
+              <button type="button" className="wizard-mic-button" aria-pressed={voiceState === 'live'} onClick={handleMicClick}>
+                {voiceState === 'connecting' && '🎤 Connecting…'}
+                {voiceState === 'live' && '🎤 End voice session'}
                 {voiceState === 'idle' && '🎤 Ask with voice'}
               </button>
             </div>

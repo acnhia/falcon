@@ -7,8 +7,8 @@ const cloudflareDirectory = resolve(scriptDirectory, '..')
 const envSource = await readFile(envPath, 'utf8')
 const config = parseEnvironment(envSource)
 
-if (!config.OPENAI_API_KEY) {
-  console.log('OPENAI_API_KEY not set in .env - skipping. Voice suggestions will return a safe 503 until this is configured.')
+if (!config.OPENAPI_KEY) {
+  console.log('OPENAPI_KEY not set in .env - skipping. Voice suggestions will return a safe 503 until this is configured.')
   process.exit(0)
 }
 
@@ -17,7 +17,7 @@ const apiToken = required(config, 'api_token')
 
 const result = spawnSync('npx', ['wrangler', 'secret', 'put', 'OPENAI_API_KEY'], {
   cwd: cloudflareDirectory,
-  input: config.OPENAI_API_KEY,
+  input: config.OPENAPI_KEY,
   stdio: ['pipe', 'inherit', 'inherit'],
   shell: process.platform === 'win32',
   env: { ...process.env, CLOUDFLARE_API_TOKEN: apiToken, CLOUDFLARE_ACCOUNT_ID: accountId },
