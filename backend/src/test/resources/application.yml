@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:onboarding-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+
+r2:
+  account-id: test-account
+  access-key: test-access-key
+  secret-key: test-secret-key
+  endpoint: http://localhost:9000
+  bucket: test-bucket
+
+onboarding:
+  capture-link-expiry-minutes: 15
+  storage-prefix: onboarding
+  max-document-bytes: 8388608
+  max-image-dimension-px: 4096
+  capture-base-url: http://localhost:5173

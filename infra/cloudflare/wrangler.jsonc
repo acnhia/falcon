@@ -1,0 +1,53 @@
+{
+  "name": "aom-demo",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-12-10",
+  "assets": {
+    "directory": "../../react/dist",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/downloads/*"
+    ]
+  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "upload-demo-test"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "TRANSFERS",
+      "database_name": "upload-transfer-test",
+      "database_id": "4c643291-9dcd-408f-a2a5-03441cbfe80c",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "UPLOAD_SESSIONS",
+        "class_name": "UploadSession"
+      },
+      {
+        "name": "STORAGE_QUOTA",
+        "class_name": "StorageQuota"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "UploadSession"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "StorageQuota"
+      ]
+    }
+  ]
+}

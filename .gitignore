@@ -1,0 +1,21 @@
+# secrets
+.env
+*.env.local
+
+# java / maven
+backend/target/
+backend/data/
+*.class
+*.jar
+
+# node
+node_modules/
+react/dist/
+react/.vite/
+infra/cloudflare/.wrangler/
+
+# os
+.DS_Store
+
+# local tooling state
+.claude/

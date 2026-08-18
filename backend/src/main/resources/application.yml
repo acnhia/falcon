@@ -1,0 +1,41 @@
+server:
+  port: 8081
+  tomcat:
+    max-swallow-size: -1
+
+spring:
+  application:
+    name: upload-demo
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+  datasource:
+    url: jdbc:h2:file:./data/onboarding
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+
+r2:
+  account-id: ${ACCOUNT_ID:}
+  access-key: ${ACCESS_ID:}
+  secret-key: ${SECRET_KEY:}
+  endpoint: ${S3_URL:}
+  bucket: ${BUCKET_NAME:upload-demo}
+
+upload:
+  worker-pool-size: ${UPLOAD_WORKER_POOL_SIZE:8}
+  part-complete-timeout-seconds: 60
+
+onboarding:
+  capture-link-expiry-minutes: ${ONBOARDING_CAPTURE_LINK_EXPIRY_MINUTES:15}
+  storage-prefix: onboarding
+  max-document-bytes: ${ONBOARDING_MAX_DOCUMENT_BYTES:8388608}
+  max-image-dimension-px: ${ONBOARDING_MAX_IMAGE_DIMENSION_PX:4096}
+  capture-base-url: ${ONBOARDING_CAPTURE_BASE_URL:http://localhost:5173}
+
+logging:
+  level:
+    com.falcon.upload: DEBUG
+    com.falcon.onboarding: DEBUG
