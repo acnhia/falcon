@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import { authedFetch } from '../test-support/auth'
-import { readJson } from '../test-support/http'
+import { authedFetch } from '../../test-support/auth'
+import { readJson } from '../../test-support/http'
 
 const adultFields = () => ({
   legalFirstName: 'Ada',

@@ -1,10 +1,11 @@
-import { ApplicationNotFoundError, InvalidCaptureLinkError, TaskValidationError, jsonResponse } from './db'
-import { createApplication, getApplicationStatus, getResumeState } from './applications'
-import { saveActivityDraft, continueActivity } from './activities'
-import { IllegalStateTransitionError, getCaptureContext, issueCaptureLink, uploadDocument } from './captures'
-import { DocumentValidationError } from './documentValidation'
-import { AssistantEnv, handleRealtimeSessionRequest } from './assistant'
-import { FieldExtractionEnv, handleExtractFieldsRequest } from './fieldExtraction'
+import { ApplicationNotFoundError, InvalidCaptureLinkError, TaskValidationError } from '../domain/errors'
+import { jsonResponse } from './http'
+import { createApplication, getApplicationStatus, getResumeState } from '../service/applications'
+import { saveActivityDraft, continueActivity } from '../service/activities'
+import { IllegalStateTransitionError, getCaptureContext, issueCaptureLink, uploadDocument } from '../service/captures'
+import { DocumentValidationError } from '../validation/documentValidation'
+import { AssistantEnv, handleRealtimeSessionRequest } from '../assistant/realtimeSession'
+import { FieldExtractionEnv, handleExtractFieldsRequest } from '../assistant/fieldExtraction'
 
 /** Allowlisted onboarding routes - the Cloudflare-deployment counterpart of OnboardingController/CaptureController. */
 export async function handleOnboardingRequest(request: Request, env: AssistantEnv & FieldExtractionEnv): Promise<Response> {

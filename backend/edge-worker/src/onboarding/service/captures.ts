@@ -1,6 +1,7 @@
-import { InvalidCaptureLinkError, OnboardingEnv, STORAGE_PREFIX, findApplicationById, findApplicationByPublicReference } from './db'
-import { validateDocument } from './documentValidation'
-import { mockValidateDocuments } from './mockChecks'
+import { InvalidCaptureLinkError } from '../domain/errors'
+import { OnboardingEnv, STORAGE_PREFIX, findApplicationById, findApplicationByPublicReference } from '../repository/onboardingRepository'
+import { validateDocument } from '../validation/documentValidation'
+import { mockValidateDocuments } from '../workflow/mockChecks'
 
 const CAPTURE_LINK_EXPIRY_MINUTES = 15
 

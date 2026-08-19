@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { extractFields } from './fieldExtraction'
-import { authedFetch } from '../test-support/auth'
-import { readJson } from '../test-support/http'
+import { authedFetch } from '../../test-support/auth'
+import { readJson } from '../../test-support/http'
 
 const FIELD_DEFINITIONS = [
   { field_key: 'legalFirstName', data_type: 'STRING' },

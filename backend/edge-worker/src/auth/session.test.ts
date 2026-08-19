@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSessionToken, verifySessionToken, verifyCredentials, signPayload, SESSION_TTL_MS } from './auth'
+import { createSessionToken, verifySessionToken, verifyCredentials, signPayload, SESSION_TTL_MS } from './session'
 
 describe('session tokens', () => {
   it('round-trips a freshly created token as valid', async () => {

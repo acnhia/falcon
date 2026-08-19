@@ -1,10 +1,8 @@
-import {
-  OnboardingEnv, TaskValidationError, findApplicationByPublicReference, isOperationAlreadyCompleted,
-  recordAuditEvent, recordOperationCompleted, updateActivityStatus,
-} from './db'
+import { OnboardingEnv, findApplicationByPublicReference, isOperationAlreadyCompleted, recordAuditEvent, recordOperationCompleted, updateActivityStatus } from '../repository/onboardingRepository'
+import { TaskValidationError } from '../domain/errors'
 import { buildResumeState, ResumeState } from './applications'
-import { evaluateAgeIdentityPrecheck } from './mockChecks'
-import { allowedValuesFor } from './enumFieldValues'
+import { evaluateAgeIdentityPrecheck } from '../workflow/mockChecks'
+import { allowedValuesFor } from '../domain/enumFieldValues'
 
 const CONSENT_ACTIVITY = 1
 /** Only activities 1 (consent) and 3 (personal information) have real save/continue logic in this phase. */

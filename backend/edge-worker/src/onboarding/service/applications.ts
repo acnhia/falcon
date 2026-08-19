@@ -1,7 +1,5 @@
-import {
-  ApplicationRow, OnboardingEnv, TOTAL_ACTIVITIES, completionPercentage, currentActivityNumber,
-  findApplicationByPublicReference, findAllActivities, updateActivityStatus, wizardScreenFor,
-} from './db'
+import { ApplicationRow, OnboardingEnv, findApplicationByPublicReference, findAllActivities, updateActivityStatus } from '../repository/onboardingRepository'
+import { TOTAL_ACTIVITIES, completionPercentage, currentActivityNumber, wizardScreenFor } from '../domain/activityProgress'
 
 export interface ApplicationSummary {
   publicReference: string

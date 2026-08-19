@@ -1,30 +1,17 @@
 /**
- * Ported from com.falcon.onboarding (backend/src/main/java/com/falcon/onboarding/) -
- * the Java backend stays the reference implementation for local/container dev;
- * this is a parallel implementation of the same API contract for the
- * Cloudflare deployment path (Workers can't run the Spring Boot JAR).
+ * D1 persistence for the onboarding workflow - the Cloudflare counterpart of the
+ * repository/jdbc package in the Java reference implementation. Every SQL statement in the
+ * onboarding module lives here; services above call these functions and never touch D1 directly.
  */
+import { ActivityRow } from '../domain/activityProgress'
+import { ApplicationNotFoundError } from '../domain/errors'
+
 export interface OnboardingEnv {
   ONBOARDING_DB: D1Database
   UPLOADS: R2Bucket
 }
 
-export const TOTAL_ACTIVITIES = 21
 export const STORAGE_PREFIX = 'onboarding'
-
-export class ApplicationNotFoundError extends Error {
-  constructor(publicReference: string) {
-    super(`No onboarding application found for reference ${publicReference}`)
-  }
-}
-
-export class InvalidCaptureLinkError extends Error {
-  constructor() {
-    super('This capture link is invalid, expired, or has already been used')
-  }
-}
-
-export class TaskValidationError extends Error {}
 
 export interface ApplicationRow {
   id: string
@@ -58,39 +45,11 @@ export async function updateActivityStatus(
   }
 }
 
-export interface ActivityRow {
-  activity_number: number
-  status: string
-  blocked_reason_code: string | null
-}
-
 export async function findAllActivities(env: OnboardingEnv, applicationId: string): Promise<ActivityRow[]> {
   const result = await env.ONBOARDING_DB.prepare(
     'SELECT activity_number, status, blocked_reason_code FROM onboarding_activity WHERE application_id = ? ORDER BY activity_number',
   ).bind(applicationId).all<ActivityRow>()
   return result.results
-}
-
-export function currentActivityNumber(activities: ActivityRow[]): number {
-  const incomplete = activities.find((a) => a.status !== 'COMPLETED' && a.status !== 'NOT_APPLICABLE')
-  return incomplete ? incomplete.activity_number : TOTAL_ACTIVITIES
-}
-
-export function completionPercentage(activities: ActivityRow[]): number {
-  if (activities.length === 0) return 0
-  const done = activities.filter((a) => a.status === 'COMPLETED' || a.status === 'NOT_APPLICABLE').length
-  return Math.round((done * 100) / activities.length)
-}
-
-export function wizardScreenFor(activityNumber: number): number {
-  if (activityNumber <= 2) return 1
-  if (activityNumber <= 4) return 2
-  if (activityNumber <= 7) return 3
-  if (activityNumber <= 10) return 4
-  if (activityNumber <= 13) return 5
-  if (activityNumber <= 16) return 6
-  if (activityNumber <= 19) return 7
-  return 8
 }
 
 export async function recordAuditEvent(
@@ -120,8 +79,4 @@ export async function recordOperationCompleted(
       "INSERT INTO workflow_operation (application_id, idempotency_key, operation_type, status, error_code, created_at) VALUES (?, ?, ?, 'COMPLETED', NULL, ?)",
     ).bind(applicationId, idempotencyKey, operationType, new Date().toISOString()).run()
   }
-}
-
-export function jsonResponse(body: unknown, status = 200): Response {
-  return Response.json(body, { status })
 }

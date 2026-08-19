@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildRealtimeSessionRequest } from './assistant'
-import { authedFetch } from '../test-support/auth'
-import { readJson } from '../test-support/http'
+import { buildRealtimeSessionRequest } from './realtimeSession'
+import { authedFetch } from '../../test-support/auth'
+import { readJson } from '../../test-support/http'
 
 describe('buildRealtimeSessionRequest', () => {
   it('declares both propose_field_value and confirm_field_value tools with the known field keys', () => {

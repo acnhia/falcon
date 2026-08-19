@@ -1,5 +1,5 @@
 import { SELF } from 'cloudflare:test'
-import { createSessionToken } from '../auth'
+import { createSessionToken } from '../auth/session'
 
 /** Must match `.dev.vars`'s SESSION_SECRET - the test-only value used by vitest-pool-workers, never the real deployed secret. */
 const TEST_SESSION_SECRET = 'test-only-session-secret-do-not-use-in-production'

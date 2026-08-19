@@ -1,5 +1,6 @@
-import { OnboardingEnv, jsonResponse } from './db'
-import { allowedValuesFor } from './enumFieldValues'
+import { OnboardingEnv } from '../repository/onboardingRepository'
+import { jsonResponse } from '../web/http'
+import { allowedValuesFor } from '../domain/enumFieldValues'
 
 /**
  * Live AI integration point (the only one in this repo) - mints a short-lived
