@@ -90,4 +90,67 @@ INSERT OR IGNORE INTO field_definition (field_key, activity_number, data_type, r
   ('residentialCountry', 3, 'COUNTRY', 1, 1),
   ('preferredFirstName', 3, 'STRING', 0, 1),
   ('preferredLastName', 3, 'STRING', 0, 1),
-  ('phone', 3, 'PHONE', 0, 1);
+  ('phone', 3, 'PHONE', 1, 1);
+
+-- Added to make the form match a real brokerage account-opening form's
+-- fields (see account_opening_fields.md), folded into this same
+-- screen/activity by deliberate scope decision - see context.md. This whole
+-- file re-runs idempotently on every deploy, so `phone`'s required flag is
+-- fixed up explicitly for databases seeded before this change.
+UPDATE field_definition SET required = 1 WHERE field_key = 'phone';
+
+INSERT OR IGNORE INTO field_definition (field_key, activity_number, data_type, required, schema_version) VALUES
+  ('middleName', 3, 'STRING', 0, 1),
+  ('suffix', 3, 'ENUM', 0, 1),
+  ('residentialAddressLine1', 3, 'STRING', 1, 1),
+  ('residentialAddressLine2', 3, 'STRING', 0, 1),
+  ('residentialCity', 3, 'STRING', 1, 1),
+  ('residentialState', 3, 'ENUM', 1, 1),
+  ('residentialPostalCode', 3, 'STRING', 1, 1),
+  ('hasMailingAddress', 3, 'BOOLEAN', 0, 1),
+  ('mailingAddressLine1', 3, 'STRING', 0, 1),
+  ('mailingAddressLine2', 3, 'STRING', 0, 1),
+  ('mailingCity', 3, 'STRING', 0, 1),
+  ('mailingState', 3, 'ENUM', 0, 1),
+  ('mailingPostalCode', 3, 'STRING', 0, 1),
+  ('maritalStatus', 3, 'ENUM', 1, 1),
+  ('citizenship', 3, 'ENUM', 1, 1),
+  ('isBrokerDealerAffiliated', 3, 'BOOLEAN', 1, 1),
+  ('brokerDealerFirmName', 3, 'STRING', 0, 1),
+  ('isControlPerson', 3, 'BOOLEAN', 1, 1),
+  ('controlPersonCompany', 3, 'STRING', 0, 1),
+  ('isPoliticallyExposedPerson', 3, 'BOOLEAN', 1, 1),
+  ('hasOtherBrokerageAccounts', 3, 'BOOLEAN', 0, 1);
+
+-- The reference brokerage's Section 2 (Employment & finances) and Section 4 (Additional
+-- details) - completing the field set. Employer address is simplified to
+-- one line, source of funds and account features are single-select /
+-- individual booleans rather than multi-select (no array-value support in
+-- this schema), and investment experience is one overall level rather than
+-- The reference brokerage's per-product breakdown - documented scope reductions.
+INSERT OR IGNORE INTO field_definition (field_key, activity_number, data_type, required, schema_version) VALUES
+  ('employmentStatus', 3, 'ENUM', 1, 1),
+  ('employerName', 3, 'STRING', 0, 1),
+  ('occupation', 3, 'STRING', 0, 1),
+  ('employerAddress', 3, 'STRING', 0, 1),
+  ('yearsWithEmployer', 3, 'STRING', 0, 1),
+  ('annualIncomeRange', 3, 'ENUM', 1, 1),
+  ('netWorthRange', 3, 'ENUM', 1, 1),
+  ('liquidNetWorthRange', 3, 'ENUM', 1, 1),
+  ('taxBracketRange', 3, 'ENUM', 0, 1),
+  ('sourceOfFunds', 3, 'ENUM', 1, 1),
+  ('investmentObjective', 3, 'ENUM', 1, 1),
+  ('riskTolerance', 3, 'ENUM', 1, 1),
+  ('investmentExperience', 3, 'ENUM', 1, 1),
+  ('timeHorizon', 3, 'ENUM', 1, 1),
+  ('trustedContactName', 3, 'STRING', 0, 1),
+  ('trustedContactPhone', 3, 'PHONE', 0, 1),
+  ('trustedContactEmail', 3, 'EMAIL', 0, 1),
+  ('trustedContactRelationship', 3, 'STRING', 0, 1),
+  ('wantsMarginAccount', 3, 'BOOLEAN', 0, 1),
+  ('wantsOptionsTrading', 3, 'BOOLEAN', 0, 1),
+  ('wantsDividendReinvestment', 3, 'BOOLEAN', 0, 1),
+  ('deliveryPreference', 3, 'ENUM', 1, 1),
+  ('costBasisMethod', 3, 'ENUM', 0, 1),
+  ('w9Certification', 3, 'BOOLEAN', 1, 1),
+  ('esignatureConsent', 3, 'BOOLEAN', 1, 1);

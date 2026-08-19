@@ -5,10 +5,7 @@
   "assets": {
     "directory": "../../react/dist",
     "binding": "ASSETS",
-    "run_worker_first": [
-      "/api/*",
-      "/downloads/*"
-    ]
+    "run_worker_first": true
   },
   "r2_buckets": [
     {
@@ -55,5 +52,8 @@
         "StorageQuota"
       ]
     }
-  ]
+  ],
+  "vars": {
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEVGz3TAYNRsq20Z"
+  }
 }

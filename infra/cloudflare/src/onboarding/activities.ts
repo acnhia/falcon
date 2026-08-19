@@ -4,6 +4,7 @@ import {
 } from './db'
 import { buildResumeState, ResumeState } from './applications'
 import { evaluateAgeIdentityPrecheck } from './mockChecks'
+import { allowedValuesFor } from './enumFieldValues'
 
 const CONSENT_ACTIVITY = 1
 /** Only activities 1 (consent) and 3 (personal information) have real save/continue logic in this phase. */
@@ -19,6 +20,7 @@ export async function saveActivityDraft(
     return buildResumeState(env, application)
   }
   requireSupportedActivity(activityNumber)
+  await validateFieldValues(env, activityNumber, fields)
 
   const before = await currentFieldValues(env, application.id)
   const previousDateOfBirth = before[DATE_OF_BIRTH_FIELD] ?? null
@@ -121,6 +123,33 @@ async function upsertFieldValue(env: OnboardingEnv, applicationId: string, field
     await env.ONBOARDING_DB.prepare(
       'INSERT INTO application_field_value (application_id, field_key, value, updated_at) VALUES (?, ?, ?, ?)',
     ).bind(applicationId, fieldKey, value, now).run()
+  }
+}
+
+/**
+ * Generic allowlist check for the ENUM/BOOLEAN-typed fields, driven by
+ * `field_definition` rather than a per-field-key switch - the only
+ * validation this codebase has beyond required-field presence-checking.
+ * Format validation (email/phone/date/ZIP) remains a known, deliberately
+ * unaddressed gap.
+ */
+async function validateFieldValues(env: OnboardingEnv, activityNumber: number, fields: Record<string, string>) {
+  const definitions = await env.ONBOARDING_DB.prepare(
+    'SELECT field_key, data_type FROM field_definition WHERE activity_number = ?',
+  ).bind(activityNumber).all<{ field_key: string; data_type: string }>()
+  const dataTypes = new Map(definitions.results.map((d) => [d.field_key, d.data_type]))
+
+  for (const [fieldKey, value] of Object.entries(fields)) {
+    if (!value?.trim()) continue
+    const dataType = dataTypes.get(fieldKey)
+    if (dataType === 'ENUM') {
+      const allowed = allowedValuesFor(fieldKey)
+      if (allowed && !allowed.has(value)) {
+        throw new TaskValidationError(`Invalid value for ${fieldKey}: ${value}`)
+      }
+    } else if (dataType === 'BOOLEAN' && value !== 'true' && value !== 'false') {
+      throw new TaskValidationError(`Invalid boolean value for ${fieldKey}: ${value}`)
+    }
   }
 }
 

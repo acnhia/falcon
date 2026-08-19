@@ -108,3 +108,5 @@ Every new user requirement must be recorded in this file before implementation w
 - A partially complete application must resume at the earliest incomplete required activity using server-persisted state. Each save/continue/check request must be idempotent and safe to retry.
 - Derived/API fields are mock-provider outputs in this POC, visibly labelled with source and status. Users may correct relevant source data; the system must invalidate and rerun dependent derived checks.
 - Begin with a modular monolith behind `onboarding-api-worker`; do not create a microservice per workflow activity without a demonstrated ownership, scaling, or deployment need.
+- Consolidate the 21 internal workflow activities into four user-facing sections: Identity and residency; Financial profile and account choices; Verification, contacts, and agreements; Review and submit. Background checks must appear in an accessible bottom status rail rather than as separate wizard screens.
+- The canonical user stories, fields, status messaging, backend responsibilities, and test expectations are in `docs/brokerage-onboarding/06-wizard-component-user-stories.md`.

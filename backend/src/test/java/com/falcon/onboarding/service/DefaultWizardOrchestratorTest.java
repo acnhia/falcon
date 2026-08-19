@@ -111,6 +111,34 @@ class DefaultWizardOrchestratorTest {
     }
 
     @Test
+    void savingAnInvalidEnumValueThrowsTaskValidationException() {
+        OnboardingApplication application = onboardingOrchestrator.createApplication();
+        wizardOrchestrator.continueActivity(application.publicReference(), 1, UUID.randomUUID().toString());
+
+        Map<String, String> invalid = new LinkedHashMap<>(adultFields());
+        invalid.put("maritalStatus", "NOT_A_REAL_STATUS");
+
+        assertThatThrownBy(() ->
+                wizardOrchestrator.saveDraft(application.publicReference(), 3, invalid, UUID.randomUUID().toString()))
+                .isInstanceOf(TaskValidationException.class)
+                .hasMessageContaining("maritalStatus");
+    }
+
+    @Test
+    void savingAnInvalidBooleanValueThrowsTaskValidationException() {
+        OnboardingApplication application = onboardingOrchestrator.createApplication();
+        wizardOrchestrator.continueActivity(application.publicReference(), 1, UUID.randomUUID().toString());
+
+        Map<String, String> invalid = new LinkedHashMap<>(adultFields());
+        invalid.put("isControlPerson", "maybe");
+
+        assertThatThrownBy(() ->
+                wizardOrchestrator.saveDraft(application.publicReference(), 3, invalid, UUID.randomUUID().toString()))
+                .isInstanceOf(TaskValidationException.class)
+                .hasMessageContaining("isControlPerson");
+    }
+
+    @Test
     void unsupportedActivityNumberThrowsTaskValidationException() {
         OnboardingApplication application = onboardingOrchestrator.createApplication();
 
@@ -125,7 +153,29 @@ class DefaultWizardOrchestratorTest {
         fields.put("legalLastName", "Lovelace");
         fields.put("dateOfBirth", "1990-01-01");
         fields.put("email", "ada@example.test");
+        fields.put("phone", "555-123-4567");
         fields.put("residentialCountry", "US");
+        fields.put("residentialAddressLine1", "123 Synthetic St");
+        fields.put("residentialCity", "Springfield");
+        fields.put("residentialState", "IL");
+        fields.put("residentialPostalCode", "62701");
+        fields.put("maritalStatus", "SINGLE");
+        fields.put("citizenship", "US_CITIZEN");
+        fields.put("isBrokerDealerAffiliated", "false");
+        fields.put("isControlPerson", "false");
+        fields.put("isPoliticallyExposedPerson", "false");
+        fields.put("employmentStatus", "EMPLOYED");
+        fields.put("annualIncomeRange", "FROM_50K_TO_100K");
+        fields.put("netWorthRange", "FROM_50K_TO_100K");
+        fields.put("liquidNetWorthRange", "FROM_25K_TO_50K");
+        fields.put("sourceOfFunds", "EMPLOYMENT_INCOME");
+        fields.put("investmentObjective", "GROWTH");
+        fields.put("riskTolerance", "MODERATE");
+        fields.put("investmentExperience", "LIMITED");
+        fields.put("timeHorizon", "LONG_TERM");
+        fields.put("deliveryPreference", "E_DELIVERY");
+        fields.put("w9Certification", "true");
+        fields.put("esignatureConsent", "true");
         return fields;
     }
 

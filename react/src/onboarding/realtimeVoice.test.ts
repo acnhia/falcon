@@ -60,8 +60,8 @@ class FakeAudio {
 }
 
 function fakeMicStream() {
-  const track = { stop: vi.fn() }
-  return { getTracks: () => [track] }
+  const track = { stop: vi.fn(), enabled: true }
+  return { getTracks: () => [track], getAudioTracks: () => [track] }
 }
 
 function functionCallEvent(name: string, args: unknown, callId = 'call-1') {
@@ -190,6 +190,32 @@ describe('startRealtimeSession', () => {
     expect(onPropose).not.toHaveBeenCalled()
   })
 
+  it('forwards assistant transcript deltas keyed by item_id, as they arrive', async () => {
+    const onAssistantTranscriptDelta = vi.fn()
+    await startRealtimeSession({
+      onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn(), onAssistantTranscriptDelta,
+    })
+
+    const pc = FakePeerConnection.instances[0]
+    pc.dataChannel.onmessage?.({ data: JSON.stringify({ type: 'response.output_audio_transcript.delta', item_id: 'item-1', delta: 'Hel' }) })
+    pc.dataChannel.onmessage?.({ data: JSON.stringify({ type: 'response.output_audio_transcript.delta', item_id: 'item-1', delta: 'lo!' }) })
+
+    expect(onAssistantTranscriptDelta).toHaveBeenNthCalledWith(1, 'item-1', 'Hel')
+    expect(onAssistantTranscriptDelta).toHaveBeenNthCalledWith(2, 'item-1', 'lo!')
+  })
+
+  it('notifies when an assistant transcript is done, by item_id', async () => {
+    const onAssistantTranscriptDone = vi.fn()
+    await startRealtimeSession({
+      onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn(), onAssistantTranscriptDone,
+    })
+
+    const pc = FakePeerConnection.instances[0]
+    pc.dataChannel.onmessage?.({ data: JSON.stringify({ type: 'response.output_audio_transcript.done', item_id: 'item-1' }) })
+
+    expect(onAssistantTranscriptDone).toHaveBeenCalledWith('item-1')
+  })
+
   it('close() stops the microphone tracks and closes the peer connection', async () => {
     const session = await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
     const pc = FakePeerConnection.instances[0]
@@ -197,5 +223,22 @@ describe('startRealtimeSession', () => {
     session?.close()
 
     expect(pc.closed).toBe(true)
+  })
+
+  it('setMuted() disables and re-enables the outgoing microphone track without closing the session', async () => {
+    const micStream = fakeMicStream()
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn().mockResolvedValue(micStream) },
+      configurable: true,
+    })
+    const session = await startRealtimeSession({ onPropose: vi.fn(), onConfirm: vi.fn(), onStateChange: vi.fn(), onError: vi.fn() })
+    const [track] = micStream.getAudioTracks()
+
+    session?.setMuted(true)
+    expect(track.enabled).toBe(false)
+    expect(FakePeerConnection.instances[0].closed).toBe(false)
+
+    session?.setMuted(false)
+    expect(track.enabled).toBe(true)
   })
 })

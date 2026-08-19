@@ -1,12 +1,35 @@
-import { SELF, env } from 'cloudflare:test'
+import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
+import { authedFetch } from '../test-support/auth'
 
 const adultFields = () => ({
   legalFirstName: 'Ada',
   legalLastName: 'Lovelace',
   dateOfBirth: '1990-01-01',
   email: 'ada@example.test',
+  phone: '555-123-4567',
   residentialCountry: 'US',
+  residentialAddressLine1: '123 Synthetic St',
+  residentialCity: 'Springfield',
+  residentialState: 'IL',
+  residentialPostalCode: '62701',
+  maritalStatus: 'SINGLE',
+  citizenship: 'US_CITIZEN',
+  isBrokerDealerAffiliated: 'false',
+  isControlPerson: 'false',
+  isPoliticallyExposedPerson: 'false',
+  employmentStatus: 'EMPLOYED',
+  annualIncomeRange: 'FROM_50K_TO_100K',
+  netWorthRange: 'FROM_50K_TO_100K',
+  liquidNetWorthRange: 'FROM_25K_TO_50K',
+  sourceOfFunds: 'EMPLOYMENT_INCOME',
+  investmentObjective: 'GROWTH',
+  riskTolerance: 'MODERATE',
+  investmentExperience: 'LIMITED',
+  timeHorizon: 'LONG_TERM',
+  deliveryPreference: 'E_DELIVERY',
+  w9Certification: 'true',
+  esignatureConsent: 'true',
 })
 
 describe('onboarding: create and resume', () => {
@@ -23,7 +46,7 @@ describe('onboarding: create and resume', () => {
   })
 
   it('resuming an unknown public reference returns a safe 404', async () => {
-    const res = await SELF.fetch('https://example.com/api/onboarding/applications/does-not-exist/resume')
+    const res = await authedFetch('https://example.com/api/onboarding/applications/does-not-exist/resume')
     expect(res.status).toBe(404)
   })
 })
@@ -113,18 +136,34 @@ describe('onboarding: personal information activity', () => {
     const res = await saveDraft(application.publicReference, 5, {})
     expect(res.status).toBe(400)
   })
+
+  it('rejects an invalid enum value for a controlled-selection field', async () => {
+    const application = await createApplication()
+    const res = await saveDraft(application.publicReference, 3, { ...adultFields(), maritalStatus: 'NOT_A_REAL_STATUS' })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('maritalStatus')
+  })
+
+  it('rejects an invalid boolean value for a Yes/No field', async () => {
+    const application = await createApplication()
+    const res = await saveDraft(application.publicReference, 3, { ...adultFields(), isControlPerson: 'maybe' })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('isControlPerson')
+  })
 })
 
 describe('onboarding: identity capture', () => {
   it('issues a capture link, tracks front/back capture, and reaches READY_FOR_REVIEW after both sides', async () => {
     const application = await createApplication()
-    const linkRes = await SELF.fetch(
+    const linkRes = await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })
     expect(linkRes.status).toBe(200)
     const link = await linkRes.json()
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
-    const contextBefore = await (await SELF.fetch(`https://example.com/api/onboarding/captures/${token}`)).json()
+    const contextBefore = await (await authedFetch(`https://example.com/api/onboarding/captures/${token}`)).json()
     expect(contextBefore.frontCaptured).toBe(false)
 
     const frontRes = await uploadDocument(token, 'front', jpegBytes(100, 100))
@@ -140,29 +179,29 @@ describe('onboarding: identity capture', () => {
 
   it('a used capture token returns a safe generic error on reuse', async () => {
     const application = await createApplication()
-    const link = await (await SELF.fetch(
+    const link = await (await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
     await uploadDocument(token, 'front', jpegBytes(100, 100))
     await uploadDocument(token, 'back', jpegBytes(100, 100))
 
-    const res = await SELF.fetch(`https://example.com/api/onboarding/captures/${token}`)
+    const res = await authedFetch(`https://example.com/api/onboarding/captures/${token}`)
     expect(res.status).toBe(404)
   })
 
   it('issuing a second capture link before the first is used is rejected as an illegal state transition', async () => {
     const application = await createApplication()
-    await SELF.fetch(`https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })
+    await authedFetch(`https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })
 
-    const res = await SELF.fetch(
+    const res = await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })
     expect(res.status).toBe(409)
   })
 
   it('rejects an oversized document', async () => {
     const application = await createApplication()
-    const link = await (await SELF.fetch(
+    const link = await (await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
@@ -173,7 +212,7 @@ describe('onboarding: identity capture', () => {
 
   it('rejects a document whose content does not match its declared content type', async () => {
     const application = await createApplication()
-    const link = await (await SELF.fetch(
+    const link = await (await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
@@ -184,7 +223,7 @@ describe('onboarding: identity capture', () => {
 
   it('rejects a document whose dimensions exceed the allowed maximum', async () => {
     const application = await createApplication()
-    const link = await (await SELF.fetch(
+    const link = await (await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
@@ -194,31 +233,31 @@ describe('onboarding: identity capture', () => {
 })
 
 async function createApplication(): Promise<{ publicReference: string; status: string }> {
-  const res = await SELF.fetch('https://example.com/api/onboarding/applications', { method: 'POST' })
+  const res = await authedFetch('https://example.com/api/onboarding/applications', { method: 'POST' })
   return res.json()
 }
 
 async function resumeState(publicReference: string) {
-  const res = await SELF.fetch(`https://example.com/api/onboarding/applications/${publicReference}/resume`)
+  const res = await authedFetch(`https://example.com/api/onboarding/applications/${publicReference}/resume`)
   return res.json()
 }
 
 function continueActivity(publicReference: string, activityNumber: number, idempotencyKey = crypto.randomUUID()) {
-  return SELF.fetch(
+  return authedFetch(
     `https://example.com/api/onboarding/applications/${publicReference}/activities/${activityNumber}/continue`,
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ idempotencyKey }) },
   )
 }
 
 function saveDraft(publicReference: string, activityNumber: number, fields: Record<string, string>, idempotencyKey = crypto.randomUUID()) {
-  return SELF.fetch(
+  return authedFetch(
     `https://example.com/api/onboarding/applications/${publicReference}/activities/${activityNumber}`,
     { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields, idempotencyKey }) },
   )
 }
 
 function uploadDocument(token: string, side: 'front' | 'back', bytes: Uint8Array) {
-  return SELF.fetch(`https://example.com/api/onboarding/captures/${token}/documents/${side}`, {
+  return authedFetch(`https://example.com/api/onboarding/captures/${token}/documents/${side}`, {
     method: 'PUT',
     headers: { 'content-type': 'image/jpeg' },
     body: bytes,

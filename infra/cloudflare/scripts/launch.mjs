@@ -25,6 +25,8 @@ run('node', ['scripts/provision-r2.mjs'], cloudflareDirectory, 'R2 bucket provis
 run('node', ['scripts/provision-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (file-transfer)')
 run('node', ['scripts/provision-onboarding-d1.mjs'], cloudflareDirectory, 'D1 database provisioning (onboarding)')
 run('node', ['scripts/provision-openai-secret.mjs'], cloudflareDirectory, 'Voice-assistant secret provisioning (optional)')
+run('node', ['scripts/provision-auth-secrets.mjs'], cloudflareDirectory, 'Login gate secret provisioning (admin credentials + session key)')
+run('node', ['scripts/provision-turnstile.mjs'], cloudflareDirectory, 'Turnstile CAPTCHA widget provisioning')
 
 run('npx', ['wrangler', 'deploy'], cloudflareDirectory, 'Worker deployment', {
   CLOUDFLARE_API_TOKEN: config.api_token,

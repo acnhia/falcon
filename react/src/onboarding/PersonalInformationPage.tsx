@@ -1,15 +1,31 @@
-import { useEffect, useRef, useState } from 'react'
-import { saveActivityDraft, continueActivity, type ResumeStateResponse } from './api'
-import { suggestionFor, REQUIRED_FIELD_ORDER, OPTIONAL_FIELD_ORDER, type FieldSuggestion } from './mockAssistant'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { extractFieldsFromText, saveActivityDraft, continueActivity, type ResumeStateResponse } from './api'
 import { isRealtimeVoiceSupported, startRealtimeSession, type FieldProposal, type RealtimeVoiceSession } from './realtimeVoice'
+import RestartButton from './RestartButton'
 
 const MAX_VOICE_SESSION_MS = 3 * 60_000
 
 interface Props {
   publicReference: string
   initialFieldValues: Record<string, string>
-  initialCompletionPercentage: number
   onContinued: (state: ResumeStateResponse) => void
+  onRestart: () => void
+}
+
+/** The single Personal Information activity, broken into 3 wizard steps for readability. */
+const STEP_TITLES = ['Personal information', 'Regulatory & employment', 'Investment profile & preferences'] as const
+
+/** Shown in the submitted modal - a demo stand-in, not a real check pipeline. */
+const SUBMISSION_CHECKS = [
+  'Identity verification',
+  'Address validation',
+  'Regulatory & watchlist screening',
+  'Account setup',
+]
+
+interface FieldSuggestion {
+  fieldKey: string
+  value: string
 }
 
 interface ChatMessage {
@@ -17,19 +33,193 @@ interface ChatMessage {
   role: 'assistant' | 'user'
   text: string
   suggestion?: FieldSuggestion
+  /** Still being spoken/typed in - shown with a live indicator, not yet a finished message. */
+  streaming?: boolean
 }
 
 type VoiceState = 'idle' | 'connecting' | 'live'
+type FieldKind = 'text' | 'date' | 'email' | 'tel' | 'select' | 'checkbox' | 'yesno'
 
 const FIELD_LABEL: Record<string, string> = {
   legalFirstName: 'Legal first name',
+  middleName: 'Middle name or initial',
   legalLastName: 'Legal last name',
-  dateOfBirth: 'Date of birth',
-  email: 'Email',
-  residentialCountry: 'Residential country',
+  suffix: 'Suffix',
   preferredFirstName: 'Preferred first name',
   preferredLastName: 'Preferred last name',
-  phone: 'Phone',
+  dateOfBirth: 'Date of birth',
+  email: 'Email',
+  phone: 'Mobile number',
+  residentialAddressLine1: 'Street address',
+  residentialAddressLine2: 'Apt., suite, or unit',
+  residentialCity: 'City',
+  residentialState: 'State',
+  residentialPostalCode: 'ZIP code',
+  residentialCountry: 'Residential country',
+  hasMailingAddress: 'Use a different mailing address',
+  mailingAddressLine1: 'Mailing street address',
+  mailingAddressLine2: 'Mailing apt., suite, or unit',
+  mailingCity: 'Mailing city',
+  mailingState: 'Mailing state',
+  mailingPostalCode: 'Mailing ZIP code',
+  maritalStatus: 'Marital status',
+  citizenship: 'Citizenship',
+  isBrokerDealerAffiliated: 'Affiliated with a broker-dealer or FINRA member firm (you or immediate family)',
+  brokerDealerFirmName: 'Broker-dealer firm name',
+  isControlPerson: 'A control person, senior officer, director, or 10%+ shareholder of a publicly traded company',
+  controlPersonCompany: 'Company name',
+  isPoliticallyExposedPerson: 'A politically exposed person (senior political figure or close associate)',
+  hasOtherBrokerageAccounts: 'You have existing brokerage accounts at other firms',
+  employmentStatus: 'Employment status',
+  employerName: 'Employer name',
+  occupation: 'Occupation / job title',
+  employerAddress: 'Employer address',
+  yearsWithEmployer: 'Years with employer',
+  annualIncomeRange: 'Annual income',
+  netWorthRange: 'Net worth (excluding primary residence)',
+  liquidNetWorthRange: 'Liquid net worth',
+  taxBracketRange: 'Federal tax bracket',
+  sourceOfFunds: 'Source of funds for this account',
+  investmentObjective: 'Investment objective',
+  riskTolerance: 'Risk tolerance',
+  investmentExperience: 'Investment experience',
+  timeHorizon: 'Time horizon',
+  trustedContactName: 'Trusted contact name',
+  trustedContactPhone: 'Trusted contact phone',
+  trustedContactEmail: 'Trusted contact email',
+  trustedContactRelationship: 'Trusted contact relationship',
+  wantsMarginAccount: 'Margin account',
+  wantsOptionsTrading: 'Options trading',
+  wantsDividendReinvestment: 'Dividend reinvestment',
+  deliveryPreference: 'Statement/document delivery preference',
+  costBasisMethod: 'Cost basis method',
+  w9Certification: 'I certify my tax ID under penalty of perjury (backup withholding / W-9 certification)',
+  esignatureConsent: 'I consent to sign this synthetic demo application electronically',
+}
+
+const FIELD_KIND: Record<string, FieldKind> = {
+  dateOfBirth: 'date',
+  email: 'email',
+  phone: 'tel',
+  suffix: 'select',
+  residentialState: 'select',
+  mailingState: 'select',
+  maritalStatus: 'select',
+  citizenship: 'select',
+  hasMailingAddress: 'checkbox',
+  isBrokerDealerAffiliated: 'yesno',
+  isControlPerson: 'yesno',
+  isPoliticallyExposedPerson: 'yesno',
+  hasOtherBrokerageAccounts: 'yesno',
+  employmentStatus: 'select',
+  annualIncomeRange: 'select',
+  netWorthRange: 'select',
+  liquidNetWorthRange: 'select',
+  taxBracketRange: 'select',
+  sourceOfFunds: 'select',
+  investmentObjective: 'select',
+  riskTolerance: 'select',
+  investmentExperience: 'select',
+  timeHorizon: 'select',
+  deliveryPreference: 'select',
+  costBasisMethod: 'select',
+  trustedContactPhone: 'tel',
+  trustedContactEmail: 'email',
+  wantsMarginAccount: 'checkbox',
+  wantsOptionsTrading: 'checkbox',
+  wantsDividendReinvestment: 'checkbox',
+  w9Certification: 'checkbox',
+  esignatureConsent: 'checkbox',
+}
+
+const SUFFIX_OPTIONS: [string, string][] = [
+  ['JR', 'Jr.'], ['SR', 'Sr.'], ['I', 'I'], ['II', 'II'], ['III', 'III'], ['IV', 'IV'],
+]
+
+const US_STATE_OPTIONS: [string, string][] = [
+  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'], ['CA', 'California'],
+  ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'], ['FL', 'Florida'], ['GA', 'Georgia'],
+  ['HI', 'Hawaii'], ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'],
+  ['KS', 'Kansas'], ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
+  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'], ['MO', 'Missouri'],
+  ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'], ['NH', 'New Hampshire'], ['NJ', 'New Jersey'],
+  ['NM', 'New Mexico'], ['NY', 'New York'], ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'],
+  ['OK', 'Oklahoma'], ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'], ['SC', 'South Carolina'],
+  ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'], ['UT', 'Utah'], ['VT', 'Vermont'],
+  ['VA', 'Virginia'], ['WA', 'Washington'], ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
+  ['DC', 'District of Columbia'], ['PR', 'Puerto Rico'],
+]
+
+const MARITAL_STATUS_OPTIONS: [string, string][] = [
+  ['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed'],
+]
+
+const CITIZENSHIP_OPTIONS: [string, string][] = [
+  ['US_CITIZEN', 'U.S. citizen'], ['RESIDENT_ALIEN', 'Resident alien'], ['NON_RESIDENT_ALIEN', 'Non-resident alien'],
+]
+
+const EMPLOYMENT_STATUS_OPTIONS: [string, string][] = [
+  ['EMPLOYED', 'Employed'], ['SELF_EMPLOYED', 'Self-employed'], ['RETIRED', 'Retired'],
+  ['STUDENT', 'Student'], ['HOMEMAKER', 'Homemaker'], ['UNEMPLOYED', 'Unemployed'],
+]
+
+const MONEY_RANGE_OPTIONS: [string, string][] = [
+  ['UNDER_25K', 'Under $25,000'], ['FROM_25K_TO_50K', '$25,000–$50,000'], ['FROM_50K_TO_100K', '$50,000–$100,000'],
+  ['FROM_100K_TO_200K', '$100,000–$200,000'], ['FROM_200K_TO_500K', '$200,000–$500,000'], ['OVER_500K', 'Over $500,000'],
+]
+
+const TAX_BRACKET_OPTIONS: [string, string][] = [
+  ['LOW', 'Low'], ['MODERATE', 'Moderate'], ['HIGH', 'High'], ['HIGHEST', 'Highest'],
+]
+
+const SOURCE_OF_FUNDS_OPTIONS: [string, string][] = [
+  ['EMPLOYMENT_INCOME', 'Employment income'], ['INVESTMENTS', 'Investments'], ['INHERITANCE', 'Inheritance'],
+  ['RETIREMENT_SAVINGS', 'Retirement savings'], ['BUSINESS_INCOME', 'Business income'], ['OTHER', 'Other'],
+]
+
+const INVESTMENT_OBJECTIVE_OPTIONS: [string, string][] = [
+  ['INCOME', 'Income'], ['GROWTH', 'Growth'], ['GROWTH_AND_INCOME', 'Growth & income'],
+  ['SPECULATION', 'Speculation / aggressive growth'], ['CAPITAL_PRESERVATION', 'Capital preservation'],
+]
+
+const RISK_TOLERANCE_OPTIONS: [string, string][] = [
+  ['CONSERVATIVE', 'Conservative'], ['MODERATE', 'Moderate'], ['AGGRESSIVE', 'Aggressive'],
+]
+
+const INVESTMENT_EXPERIENCE_OPTIONS: [string, string][] = [
+  ['NONE', 'None'], ['LIMITED', 'Limited'], ['GOOD', 'Good'], ['EXTENSIVE', 'Extensive'],
+]
+
+const TIME_HORIZON_OPTIONS: [string, string][] = [
+  ['SHORT_TERM', 'Short-term (under 3 years)'], ['MEDIUM_TERM', 'Medium-term (3–10 years)'], ['LONG_TERM', 'Long-term (10+ years)'],
+]
+
+const DELIVERY_PREFERENCE_OPTIONS: [string, string][] = [
+  ['E_DELIVERY', 'Electronic delivery'], ['PAPER', 'Paper mail'],
+]
+
+const COST_BASIS_OPTIONS: [string, string][] = [
+  ['FIFO', 'FIFO'], ['LIFO', 'LIFO'], ['SPECIFIC_IDENTIFICATION', 'Specific identification'], ['AVERAGE_COST', 'Average cost'],
+]
+
+const SELECT_OPTIONS: Record<string, [string, string][]> = {
+  suffix: SUFFIX_OPTIONS,
+  residentialState: US_STATE_OPTIONS,
+  mailingState: US_STATE_OPTIONS,
+  maritalStatus: MARITAL_STATUS_OPTIONS,
+  citizenship: CITIZENSHIP_OPTIONS,
+  employmentStatus: EMPLOYMENT_STATUS_OPTIONS,
+  annualIncomeRange: MONEY_RANGE_OPTIONS,
+  netWorthRange: MONEY_RANGE_OPTIONS,
+  liquidNetWorthRange: MONEY_RANGE_OPTIONS,
+  taxBracketRange: TAX_BRACKET_OPTIONS,
+  sourceOfFunds: SOURCE_OF_FUNDS_OPTIONS,
+  investmentObjective: INVESTMENT_OBJECTIVE_OPTIONS,
+  riskTolerance: RISK_TOLERANCE_OPTIONS,
+  investmentExperience: INVESTMENT_EXPERIENCE_OPTIONS,
+  timeHorizon: TIME_HORIZON_OPTIONS,
+  deliveryPreference: DELIVERY_PREFERENCE_OPTIONS,
+  costBasisMethod: COST_BASIS_OPTIONS,
 }
 
 const voiceSupported = isRealtimeVoiceSupported()
@@ -37,28 +227,81 @@ const voiceSupported = isRealtimeVoiceSupported()
 export default function PersonalInformationPage({
   publicReference,
   initialFieldValues,
-  initialCompletionPercentage,
   onContinued,
+  onRestart,
 }: Props) {
   const [fields, setFields] = useState<Record<string, string>>(initialFieldValues)
-  const [focusedField, setFocusedField] = useState<string | null>(null)
-  const [completionPercentage, setCompletionPercentage] = useState(initialCompletionPercentage)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+  const [showVoiceHint, setShowVoiceHint] = useState(true)
+  const [muted, setMuted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Hi! I can suggest synthetic demo values for this form. Nothing you enter here is a real identity.',
+      text: 'Hi! Fill this out however is easiest - type here, paste a blob of info, or use voice. For example, try '
+        + 'saying or typing "my date of birth is 9/14/1981" and I\'ll convert it to the right format for you. '
+        + 'Nothing here is a real identity.',
     },
   ])
+  const [composerText, setComposerText] = useState('')
+  const [extracting, setExtracting] = useState(false)
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const sessionRef = useRef<RealtimeVoiceSession | null>(null)
   const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const transcriptMessageIds = useRef<Map<string, string>>(new Map())
+
+  const chatLogRef = useRef<HTMLUListElement>(null)
+  const pinnedToBottomRef = useRef(true)
 
   useEffect(() => {
     return () => sessionRef.current?.close()
   }, [])
+
+  useEffect(() => {
+    if (pinnedToBottomRef.current && chatLogRef.current) {
+      chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight
+    }
+  }, [messages])
+
+  function handleChatScroll() {
+    const el = chatLogRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    pinnedToBottomRef.current = distanceFromBottom < 24
+  }
+
+  function toggleMute(source: 'button' | 'spacebar') {
+    if (!sessionRef.current) return
+    const next = !muted
+    sessionRef.current.setMuted(next)
+    setMuted(next)
+    addMessage({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      text: next
+        ? `Microphone muted (${source === 'spacebar' ? 'spacebar' : 'mute button'}) - the assistant can't hear you. Press space or the mute button to unmute.`
+        : `Microphone unmuted (${source === 'spacebar' ? 'spacebar' : 'mute button'}) - the assistant can hear you again.`,
+    })
+  }
+
+  // Spacebar toggles mute while a voice session is live - but never while the user is typing
+  // into the composer or a form field, where space is just a space.
+  useEffect(() => {
+    if (voiceState !== 'live') return
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.code !== 'Space' && event.key !== ' ') return
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return
+      event.preventDefault()
+      toggleMute('spacebar')
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
 
   function updateField(key: string, value: string) {
     setFields((prev) => ({ ...prev, [key]: value }))
@@ -68,13 +311,65 @@ export default function PersonalInformationPage({
     setMessages((prev) => [...prev, message])
   }
 
-  function handleAskAssistant() {
-    const suggestion = suggestionFor(focusedField, fields)
-    if (!suggestion) {
-      addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Every field already has a value - nothing to suggest.' })
-      return
+  /** Appends to the same message bubble as more of a spoken turn arrives, so it reads as typing in live. */
+  function handleAssistantTranscriptDelta(itemId: string, delta: string) {
+    setMessages((prev) => {
+      const existingId = transcriptMessageIds.current.get(itemId)
+      if (existingId) {
+        return prev.map((message) => (message.id === existingId ? { ...message, text: message.text + delta } : message))
+      }
+      const newId = crypto.randomUUID()
+      transcriptMessageIds.current.set(itemId, newId)
+      return [...prev, { id: newId, role: 'assistant', text: delta, streaming: true }]
+    })
+  }
+
+  function handleAssistantTranscriptDone(itemId: string) {
+    const messageId = transcriptMessageIds.current.get(itemId)
+    if (!messageId) return
+    transcriptMessageIds.current.delete(itemId)
+    setMessages((prev) => prev.map((message) => (message.id === messageId ? { ...message, streaming: false } : message)))
+  }
+
+  async function handleSendComposer() {
+    const text = composerText.trim()
+    if (!text || extracting) return
+    addMessage({ id: crypto.randomUUID(), role: 'user', text })
+    setComposerText('')
+    setExtracting(true)
+    try {
+      const proposals = await extractFieldsFromText(text)
+      if (proposals.length === 0) {
+        addMessage({
+          id: crypto.randomUUID(), role: 'assistant',
+          text: "I didn't find anything I could use for the form in that message - try adding more detail.",
+        })
+      } else {
+        const labels = proposals.map((p) => FIELD_LABEL[p.fieldKey] ?? p.fieldKey).join(', ')
+        addMessage({
+          id: crypto.randomUUID(), role: 'assistant',
+          text: `I can suggest values for: ${labels}. Use the buttons below to apply them.`,
+        })
+        for (const proposal of proposals) {
+          addMessage({
+            id: crypto.randomUUID(), role: 'assistant',
+            text: `${FIELD_LABEL[proposal.fieldKey] ?? proposal.fieldKey}: ${proposal.value}`,
+            suggestion: { fieldKey: proposal.fieldKey, value: proposal.value },
+          })
+        }
+      }
+    } catch (reason) {
+      addMessage({ id: crypto.randomUUID(), role: 'assistant', text: (reason as Error).message })
+    } finally {
+      setExtracting(false)
     }
-    addMessage({ id: crypto.randomUUID(), role: 'assistant', text: suggestion.message, suggestion })
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      handleSendComposer()
+    }
   }
 
   function endVoiceSession() {
@@ -85,6 +380,8 @@ export default function PersonalInformationPage({
       sessionTimeoutRef.current = null
     }
     setVoiceState('idle')
+    setMuted(false)
+    addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Voice session ended.' })
   }
 
   async function handleMicClick() {
@@ -94,10 +391,18 @@ export default function PersonalInformationPage({
     }
     setVoiceState('connecting')
     const session = await startRealtimeSession({
-      onPropose: (proposal) => addMessage({ id: crypto.randomUUID(), role: 'assistant', text: proposal.message }),
+      // The proposal's spoken "should I use X?" ask is shown live via the transcript-delta stream below,
+      // not duplicated here - the two would otherwise show near-identical text twice.
+      onPropose: () => {},
       onConfirm: handleVoiceConfirm,
       onStateChange: (state) => {
-        if (state === 'open') setVoiceState('live')
+        if (state === 'open') {
+          setVoiceState('live')
+          addMessage({
+            id: crypto.randomUUID(), role: 'assistant',
+            text: 'Voice session started - microphone is live. Press the spacebar or the mute button to mute yourself at any time.',
+          })
+        }
         if (state === 'error') {
           addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Voice session had a problem - you can still use the text chat below.' })
           setVoiceState('idle')
@@ -105,6 +410,8 @@ export default function PersonalInformationPage({
         if (state === 'closed') setVoiceState('idle')
       },
       onError: handleVoiceError,
+      onAssistantTranscriptDelta: handleAssistantTranscriptDelta,
+      onAssistantTranscriptDone: handleAssistantTranscriptDone,
     })
     sessionRef.current = session
     if (session) {
@@ -142,8 +449,7 @@ export default function PersonalInformationPage({
     setBusy(true)
     setError(null)
     try {
-      const state = await saveActivityDraft(publicReference, 3, fields, crypto.randomUUID())
-      setCompletionPercentage(state.completionPercentage)
+      await saveActivityDraft(publicReference, 3, fields, crypto.randomUUID())
     } catch (reason) {
       setError((reason as Error).message)
     } finally {
@@ -151,13 +457,14 @@ export default function PersonalInformationPage({
     }
   }
 
-  async function handleContinue() {
+  async function handleSubmit() {
     setBusy(true)
     setError(null)
     try {
       await saveActivityDraft(publicReference, 3, fields, crypto.randomUUID())
       const state = await continueActivity(publicReference, 3, crypto.randomUUID())
       onContinued(state)
+      setSubmitted(true)
     } catch (reason) {
       setError((reason as Error).message)
     } finally {
@@ -165,56 +472,224 @@ export default function PersonalInformationPage({
     }
   }
 
+  function renderField(key: string, required: boolean) {
+    const kind = FIELD_KIND[key] ?? 'text'
+    const label = FIELD_LABEL[key] ?? key
+
+    if (kind === 'checkbox') {
+      return (
+        <label className="wizard-checkbox" key={key}>
+          <input
+            type="checkbox"
+            checked={fields[key] === 'true'}
+            onChange={(event) => updateField(key, event.target.checked ? 'true' : 'false')}
+          />
+          {label}
+        </label>
+      )
+    }
+
+    if (kind === 'yesno') {
+      return (
+        <div className="wizard-field" key={key}>
+          <label htmlFor={`field-${key}`}>
+            {label} {required ? <span aria-hidden="true">*</span> : '(optional)'}
+          </label>
+          <select
+            id={`field-${key}`}
+            className="wizard-field-control"
+            required={required}
+            value={fields[key] ?? ''}
+            onChange={(event) => updateField(key, event.target.value)}
+          >
+            <option value="">Select…</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      )
+    }
+
+    if (kind === 'select') {
+      const options = SELECT_OPTIONS[key] ?? []
+
+      return (
+        <div className="wizard-field" key={key}>
+          <label htmlFor={`field-${key}`}>
+            {label} {required ? <span aria-hidden="true">*</span> : '(optional)'}
+          </label>
+          <select
+            id={`field-${key}`}
+            className="wizard-field-control"
+            required={required}
+            value={fields[key] ?? ''}
+            onChange={(event) => updateField(key, event.target.value)}
+          >
+            <option value="">Select…</option>
+            {options.map(([value, optionLabel]) => (
+              <option key={value} value={value}>{optionLabel}</option>
+            ))}
+          </select>
+        </div>
+      )
+    }
+
+    return (
+      <div className="wizard-field" key={key}>
+        <label htmlFor={`field-${key}`}>
+          {label} {required ? <span aria-hidden="true">*</span> : '(optional)'}
+        </label>
+        <input
+          id={`field-${key}`}
+          type={kind === 'text' ? undefined : kind}
+          required={required}
+          value={fields[key] ?? ''}
+          onChange={(event) => updateField(key, event.target.value)}
+        />
+      </div>
+    )
+  }
+
+  const showMailingAddress = fields.hasMailingAddress === 'true'
+  const showBrokerDealerFirmName = fields.isBrokerDealerAffiliated === 'true'
+  const showControlPersonCompany = fields.isControlPerson === 'true'
+  const showEmployerFields = fields.employmentStatus === 'EMPLOYED' || fields.employmentStatus === 'SELF_EMPLOYED'
+
   return (
     <main className="wizard-dark wizard-workspace">
+      <RestartButton onRestart={onRestart} />
       <p className="wizard-disclosure">
-        Demonstration only - synthetic data. Voice sessions are a live AI conversation (ends automatically after
-        3 minutes) - the assistant asks out loud before using anything you say; say "yes" to confirm, or just say
-        the right value instead.
+        Demonstration only - synthetic data. No real SSN or tax ID is ever collected. Voice sessions are a live AI
+        conversation (ends automatically after 3 minutes) - the assistant asks out loud before using anything you
+        say; say "yes" to confirm, or just say the right value instead.
       </p>
-      <h1>Personal information — stage 2 of 21</h1>
-      <div className="wizard-progress-overall">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${completionPercentage}%` }} />
-        </div>
-        <span>{completionPercentage}% complete</span>
-      </div>
+      <h1>{STEP_TITLES[step - 1]}</h1>
+      <ol className="wizard-steps" aria-label={`Step ${step} of ${STEP_TITLES.length}`}>
+        {STEP_TITLES.map((title, index) => {
+          const stepNumber = index + 1
+          const state = stepNumber < step ? 'done' : stepNumber === step ? 'current' : 'upcoming'
+          return (
+            <li key={title} className={`wizard-step wizard-step-${state}`} aria-current={state === 'current' ? 'step' : undefined}>
+              <span className="wizard-step-bar" aria-hidden="true" />
+              <span className="wizard-step-title">{stepNumber}. {title}</span>
+            </li>
+          )
+        })}
+      </ol>
 
       <div className="wizard-two-panel">
-        <section className="wizard-form-panel" aria-label="Personal information form">
-          {REQUIRED_FIELD_ORDER.map((key) => (
-            <div className="wizard-field" key={key}>
-              <label htmlFor={`field-${key}`}>
-                {FIELD_LABEL[key]} <span aria-hidden="true">*</span>
-              </label>
-              <input
-                id={`field-${key}`}
-                required
-                value={fields[key] ?? ''}
-                onFocus={() => setFocusedField(key)}
-                onChange={(event) => updateField(key, event.target.value)}
-              />
-            </div>
-          ))}
-          {OPTIONAL_FIELD_ORDER.map((key) => (
-            <div className="wizard-field" key={key}>
-              <label htmlFor={`field-${key}`}>{FIELD_LABEL[key]} (optional)</label>
-              <input
-                id={`field-${key}`}
-                value={fields[key] ?? ''}
-                onFocus={() => setFocusedField(key)}
-                onChange={(event) => updateField(key, event.target.value)}
-              />
-            </div>
-          ))}
+        <section className="wizard-form-panel" aria-label={`${STEP_TITLES[step - 1]} form`}>
+          {step === 1 && (
+            <>
+              <h3>Personal</h3>
+              {renderField('legalFirstName', true)}
+              {renderField('middleName', false)}
+              {renderField('legalLastName', true)}
+              {renderField('suffix', false)}
+              {renderField('preferredFirstName', false)}
+              {renderField('preferredLastName', false)}
+              {renderField('dateOfBirth', true)}
+              {renderField('email', true)}
+              {renderField('phone', true)}
+
+              <h3>Address</h3>
+              {renderField('residentialAddressLine1', true)}
+              {renderField('residentialAddressLine2', false)}
+              {renderField('residentialCity', true)}
+              {renderField('residentialState', true)}
+              {renderField('residentialPostalCode', true)}
+              {renderField('residentialCountry', true)}
+              {renderField('hasMailingAddress', false)}
+              {showMailingAddress && (
+                <div className="wizard-conditional-block">
+                  <h3>Mailing address</h3>
+                  {renderField('mailingAddressLine1', false)}
+                  {renderField('mailingAddressLine2', false)}
+                  {renderField('mailingCity', false)}
+                  {renderField('mailingState', false)}
+                  {renderField('mailingPostalCode', false)}
+                </div>
+              )}
+
+              <h3>Marital status &amp; citizenship</h3>
+              {renderField('maritalStatus', true)}
+              {renderField('citizenship', true)}
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <h3>Regulatory disclosures</h3>
+              {renderField('isBrokerDealerAffiliated', true)}
+              {showBrokerDealerFirmName && renderField('brokerDealerFirmName', false)}
+              {renderField('isControlPerson', true)}
+              {showControlPersonCompany && renderField('controlPersonCompany', false)}
+              {renderField('isPoliticallyExposedPerson', true)}
+              {renderField('hasOtherBrokerageAccounts', false)}
+
+              <h3>Employment &amp; finances</h3>
+              {renderField('employmentStatus', true)}
+              {showEmployerFields && (
+                <div className="wizard-conditional-block">
+                  {renderField('employerName', false)}
+                  {renderField('occupation', false)}
+                  {renderField('employerAddress', false)}
+                  {renderField('yearsWithEmployer', false)}
+                </div>
+              )}
+              {renderField('annualIncomeRange', true)}
+              {renderField('netWorthRange', true)}
+              {renderField('liquidNetWorthRange', true)}
+              {renderField('taxBracketRange', false)}
+              {renderField('sourceOfFunds', true)}
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <h3>Investment profile</h3>
+              {renderField('investmentObjective', true)}
+              {renderField('riskTolerance', true)}
+              {renderField('investmentExperience', true)}
+              {renderField('timeHorizon', true)}
+
+              <h3>Trusted contact (optional)</h3>
+              {renderField('trustedContactName', false)}
+              {renderField('trustedContactPhone', false)}
+              {renderField('trustedContactEmail', false)}
+              {renderField('trustedContactRelationship', false)}
+
+              <h3>Account features (optional)</h3>
+              {renderField('wantsMarginAccount', false)}
+              {renderField('wantsOptionsTrading', false)}
+              {renderField('wantsDividendReinvestment', false)}
+
+              <h3>Delivery &amp; tax certifications</h3>
+              {renderField('deliveryPreference', true)}
+              {renderField('costBasisMethod', false)}
+              {renderField('w9Certification', true)}
+              {renderField('esignatureConsent', true)}
+            </>
+          )}
 
           <div className="actions">
+            {step > 1 && (
+              <button type="button" onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)} disabled={busy}>
+                Back
+              </button>
+            )}
             <button type="button" onClick={handleSaveDraft} disabled={busy}>
               Save draft
             </button>
-            <button type="button" onClick={handleContinue} disabled={busy}>
-              Continue
-            </button>
+            {step < STEP_TITLES.length ? (
+              <button type="button" onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)} disabled={busy}>
+                Next
+              </button>
+            ) : (
+              <button type="button" onClick={handleSubmit} disabled={busy}>
+                Submit
+              </button>
+            )}
           </div>
 
           {error && (
@@ -226,10 +701,13 @@ export default function PersonalInformationPage({
 
         <aside className="wizard-chat-panel" aria-label="Guided demo assistant">
           <h2>Guided assistant</h2>
-          <ul className="wizard-chat-log" aria-live="polite">
+          <ul className="wizard-chat-log" aria-live="polite" ref={chatLogRef} onScroll={handleChatScroll}>
             {messages.map((message) => (
               <li key={message.id} className={`wizard-chat-message wizard-chat-${message.role}`}>
-                <p>{message.text}</p>
+                <p>
+                  {message.text}
+                  {message.streaming && <span className="wizard-chat-cursor" aria-hidden="true" />}
+                </p>
                 {message.suggestion && (
                   <button type="button" onClick={() => handleUseSuggestion(message.suggestion as FieldSuggestion)}>
                     Use this
@@ -238,24 +716,106 @@ export default function PersonalInformationPage({
               </li>
             ))}
           </ul>
-          <button type="button" onClick={handleAskAssistant}>
-            Ask for a suggestion
-          </button>
 
-          {voiceSupported ? (
-            <div className="wizard-voice-control">
-              {voiceState !== 'idle' && <div className={`voice-orb voice-orb-${voiceState}`} aria-hidden="true" />}
-              <button type="button" className="wizard-mic-button" aria-pressed={voiceState === 'live'} onClick={handleMicClick}>
-                {voiceState === 'connecting' && '🎤 Connecting…'}
-                {voiceState === 'live' && '🎤 End voice session'}
-                {voiceState === 'idle' && '🎤 Ask with voice'}
+          <div className="wizard-composer">
+            <textarea
+              className="wizard-composer-input"
+              placeholder="Type a message, or paste your info…"
+              value={composerText}
+              onChange={(event) => setComposerText(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              disabled={extracting}
+              rows={1}
+            />
+            <div className="wizard-composer-toolbar">
+              {voiceSupported && (
+                <button
+                  type="button"
+                  className="wizard-icon-button wizard-mic-button"
+                  aria-pressed={voiceState === 'live'}
+                  aria-label={
+                    voiceState === 'live' ? 'End voice session' : voiceState === 'connecting' ? 'Connecting to voice session' : 'Ask with voice'
+                  }
+                  title={voiceState === 'live' ? 'End voice session' : voiceState === 'connecting' ? 'Connecting…' : 'Ask with voice'}
+                  onClick={handleMicClick}
+                >
+                  🎤
+                  {voiceState !== 'idle' && <span className={`voice-orb voice-orb-${voiceState}`} aria-hidden="true" />}
+                </button>
+              )}
+
+              {voiceState === 'live' && (
+                <button
+                  type="button"
+                  className="wizard-icon-button wizard-mute-button"
+                  aria-pressed={muted}
+                  aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}
+                  title={`${muted ? 'Unmute' : 'Mute'} microphone (spacebar)`}
+                  onClick={() => toggleMute('button')}
+                >
+                  {muted ? '🔇' : '🔊'}
+                </button>
+              )}
+              <span className="wizard-composer-spacer" />
+              <button
+                type="button"
+                className="wizard-icon-button wizard-send-button"
+                onClick={handleSendComposer}
+                disabled={extracting || !composerText.trim()}
+                aria-label="Send"
+                title="Send"
+              >
+                ➤
               </button>
             </div>
-          ) : (
+          </div>
+
+          {!voiceSupported && (
             <p className="wizard-voice-unsupported">Voice input isn't supported in this browser - use the text chat above.</p>
           )}
         </aside>
       </div>
+
+      {showVoiceHint && voiceSupported && (
+        <div className="wizard-modal-backdrop">
+          <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Try the voice option">
+            <h2>Try filling this form by voice</h2>
+            <p>
+              Try out the voice option to fill the form instead of a traditional form-filling method. Press the
+              microphone button in the assistant panel and just say your details - it understands every field on all
+              three steps, and you can give several at once ("my name is Ada Lovelace, I live at 123 Main Street,
+              Springfield, Illinois 62704").
+            </p>
+            <p>
+              While a voice session is live, press the <strong>spacebar</strong> or the mute button to mute your
+              microphone. You can also type or paste your details into the chat instead.
+            </p>
+            <button type="button" onClick={() => setShowVoiceHint(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {submitted && (
+        <div className="wizard-modal-backdrop">
+          <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Application submitted">
+            <h2>Application submitted</h2>
+            <p>We're running {SUBMISSION_CHECKS.length} checks in the background:</p>
+            <ul className="wizard-modal-checks">
+              {SUBMISSION_CHECKS.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+            <p>
+              You can close this message - we'll let you know once your submission finishes processing.
+            </p>
+            <button type="button" onClick={() => setSubmitted(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

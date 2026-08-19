@@ -8,6 +8,8 @@
     "deploy": "wrangler deploy",
     "provision:d1": "node scripts/provision-d1.mjs",
     "provision:r2": "node scripts/provision-r2.mjs",
+    "provision:auth": "node scripts/provision-auth-secrets.mjs",
+    "provision:turnstile": "node scripts/provision-turnstile.mjs",
     "launch": "node scripts/launch.mjs",
     "launch:docker": "node scripts/docker-launch.mjs",
     "check": "tsc --noEmit",

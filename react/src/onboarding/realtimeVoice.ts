@@ -29,10 +29,22 @@ export interface RealtimeVoiceCallbacks {
   onConfirm: (proposal: FieldProposal) => void
   onStateChange: (state: ConnectionState) => void
   onError: (error: string) => void
+  /**
+   * Incremental transcript text of the assistant's spoken audio, as it's
+   * spoken - lets the UI show the response typing in while it's heard, not
+   * just after it finishes. `itemId` identifies which spoken turn a delta
+   * belongs to, so consecutive deltas for the same turn can be appended to
+   * one message instead of each starting a new one.
+   */
+  onAssistantTranscriptDelta?: (itemId: string, delta: string) => void
+  /** That spoken turn's transcript is complete - stop treating it as still-typing. */
+  onAssistantTranscriptDone?: (itemId: string) => void
 }
 
 export interface RealtimeVoiceSession {
   close: () => void
+  /** Mutes/unmutes the outgoing microphone track - the assistant simply stops hearing you while muted; the connection stays open. */
+  setMuted: (muted: boolean) => void
 }
 
 interface RealtimeEvent {
@@ -40,6 +52,8 @@ interface RealtimeEvent {
   response?: {
     output?: { type: string; name?: string; arguments?: string; call_id?: string }[]
   }
+  item_id?: string
+  delta?: string
 }
 
 export function isRealtimeVoiceSupported(): boolean {
@@ -47,7 +61,7 @@ export function isRealtimeVoiceSupported(): boolean {
 }
 
 export async function startRealtimeSession(
-  { onPropose, onConfirm, onStateChange, onError }: RealtimeVoiceCallbacks,
+  { onPropose, onConfirm, onStateChange, onError, onAssistantTranscriptDelta, onAssistantTranscriptDone }: RealtimeVoiceCallbacks,
 ): Promise<RealtimeVoiceSession | null> {
   if (!isRealtimeVoiceSupported()) {
     onError('unsupported')
@@ -98,7 +112,9 @@ export async function startRealtimeSession(
     const pendingProposals = new Map<string, FieldProposal>()
     const dataChannel = peerConnection.createDataChannel('oai-events')
     dataChannel.onmessage = (event) => {
-      handleRealtimeEvent(event.data, dataChannel, pendingProposals, onPropose, onConfirm)
+      handleRealtimeEvent(event.data, dataChannel, pendingProposals, {
+        onPropose, onConfirm, onAssistantTranscriptDelta, onAssistantTranscriptDone,
+      })
     }
 
     peerConnection.onconnectionstatechange = () => {
@@ -129,6 +145,9 @@ export async function startRealtimeSession(
         dataChannel.close()
         onStateChange('closed')
       },
+      setMuted: (muted: boolean) => {
+        micStream.getAudioTracks().forEach((track) => { track.enabled = !muted })
+      },
     }
   } catch (reason) {
     cleanup()
@@ -137,12 +156,18 @@ export async function startRealtimeSession(
   }
 }
 
+interface TranscriptCallbacks {
+  onPropose: (proposal: FieldProposal) => void
+  onConfirm: (proposal: FieldProposal) => void
+  onAssistantTranscriptDelta?: (itemId: string, delta: string) => void
+  onAssistantTranscriptDone?: (itemId: string) => void
+}
+
 function handleRealtimeEvent(
   raw: string,
   dataChannel: RTCDataChannel,
   pendingProposals: Map<string, FieldProposal>,
-  onPropose: (proposal: FieldProposal) => void,
-  onConfirm: (proposal: FieldProposal) => void,
+  { onPropose, onConfirm, onAssistantTranscriptDelta, onAssistantTranscriptDone }: TranscriptCallbacks,
 ) {
   let event: RealtimeEvent
   try {
@@ -150,6 +175,16 @@ function handleRealtimeEvent(
   } catch {
     return
   }
+
+  if (event.type === 'response.output_audio_transcript.delta') {
+    if (event.item_id && event.delta) onAssistantTranscriptDelta?.(event.item_id, event.delta)
+    return
+  }
+  if (event.type === 'response.output_audio_transcript.done') {
+    if (event.item_id) onAssistantTranscriptDone?.(event.item_id)
+    return
+  }
+
   if (event.type !== 'response.done') return
 
   for (const output of event.response?.output ?? []) {

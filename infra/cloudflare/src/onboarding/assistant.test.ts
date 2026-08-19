@@ -1,6 +1,6 @@
-import { SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import { buildRealtimeSessionRequest } from './assistant'
+import { authedFetch } from '../test-support/auth'
 
 describe('buildRealtimeSessionRequest', () => {
   it('declares both propose_field_value and confirm_field_value tools with the known field keys', () => {
@@ -38,7 +38,7 @@ describe('buildRealtimeSessionRequest', () => {
 
 describe('POST /api/onboarding/assistant/realtime-session', () => {
   it('returns a safe 503 when the assistant is not configured, without calling OpenAI', async () => {
-    const res = await SELF.fetch('https://example.com/api/onboarding/assistant/realtime-session', { method: 'POST' })
+    const res = await authedFetch('https://example.com/api/onboarding/assistant/realtime-session', { method: 'POST' })
 
     expect(res.status).toBe(503)
     const body = await res.json()

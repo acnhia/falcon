@@ -13,6 +13,8 @@ This is the detailed flow for the **synthetic, mock-only** partner POC. It demon
 
 The numbered rows below are workflow activities, not a mandate for 21 screens. The initial wizard consolidates them into 8 screens: welcome/consent; personal information; address/tax residency; employment/financial profile; objectives/account features; contacts/disclosures/agreements; identity/funding; and review/submit. Background checks render a truthful status and retry path. The authoritative screen-to-activity and field mapping is in [wizard, data, and service design](05-wizard-data-and-services.md).
 
+The updated POC interaction requirement consolidates this further into four user-facing sections while retaining all 21 activities: Identity and residency; Financial profile and account choices; Verification, contacts, and agreements; Review and submit. The canonical component-level field and status stories are in [wizard component user stories](06-wizard-component-user-stories.md).
+
 ## Lifecycle
 
 ```text

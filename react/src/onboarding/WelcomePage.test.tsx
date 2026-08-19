@@ -22,7 +22,7 @@ describe('WelcomePage', () => {
   })
 
   it('disables Continue until both acknowledgements are checked', async () => {
-    render(<WelcomePage onReady={vi.fn()} />)
+    render(<WelcomePage onReady={vi.fn()} onRestart={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /continue/i }))
 
     const continueButton = screen.getByRole('button', { name: /continue/i }) as HTMLButtonElement
@@ -47,7 +47,7 @@ describe('WelcomePage', () => {
     })
     const onReady = vi.fn()
 
-    render(<WelcomePage onReady={onReady} />)
+    render(<WelcomePage onReady={onReady} onRestart={vi.fn()} />)
     await waitFor(() => screen.getByRole('button', { name: /continue/i }))
     fireEvent.click(screen.getByText(/demonstration using synthetic data only/i))
     fireEvent.click(screen.getByText(/mock chat\/voice guidance/i))
@@ -71,7 +71,7 @@ describe('WelcomePage', () => {
     api.getResumeState.mockResolvedValue(resumeState)
     const onReady = vi.fn()
 
-    render(<WelcomePage onReady={onReady} />)
+    render(<WelcomePage onReady={onReady} onRestart={vi.fn()} />)
 
     await waitFor(() => expect(onReady).toHaveBeenCalledWith(resumeState))
     expect(api.createApplication).not.toHaveBeenCalled()
@@ -81,9 +81,21 @@ describe('WelcomePage', () => {
     localStorage.setItem(RESUME_STORAGE_KEY, 'ref-gone')
     api.getResumeState.mockRejectedValue(new Error('Failed to resume onboarding application (404)'))
 
-    render(<WelcomePage onReady={vi.fn()} />)
+    render(<WelcomePage onReady={vi.fn()} onRestart={vi.fn()} />)
 
     await waitFor(() => screen.getByRole('button', { name: /continue/i }))
     expect(localStorage.getItem(RESUME_STORAGE_KEY)).toBeNull()
+  })
+
+  it('shows a Restart control that calls onRestart after confirmation', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    const onRestart = vi.fn()
+
+    render(<WelcomePage onReady={vi.fn()} onRestart={onRestart} />)
+    await waitFor(() => screen.getByRole('button', { name: /continue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /restart/i }))
+
+    expect(onRestart).toHaveBeenCalledOnce()
+    vi.unstubAllGlobals()
   })
 })

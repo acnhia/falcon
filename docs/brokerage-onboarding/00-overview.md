@@ -40,6 +40,7 @@ Invalid, expired, or already-used capture tokens do not change application state
 - The landing route `/` opens the dark **Personal information — stage 2 of 21** workspace. It includes a synthetic form, guided mock chat, and explicit mock voice control.
 - A user can leave and return. The server persists activity state and resumes at the earliest incomplete required activity; browser-local state is not the source of truth.
 - The detailed screen/activity map, fields, normalized data model, retry behavior, and logical services are specified in [wizard, data, and service design](05-wizard-data-and-services.md).
+- Detailed four-section component stories, all user-captured fields, background-status behavior, and implementation test stories are specified in [wizard component user stories](06-wizard-component-user-stories.md).
 
 ## User stories
 

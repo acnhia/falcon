@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { createApplication, continueActivity, getResumeState, type ResumeStateResponse } from './api'
+import RestartButton from './RestartButton'
 
 export const RESUME_STORAGE_KEY = 'onboarding.publicReference'
 
 interface Props {
   onReady: (state: ResumeStateResponse) => void
+  onRestart: () => void
 }
 
-export default function WelcomePage({ onReady }: Props) {
+export default function WelcomePage({ onReady, onRestart }: Props) {
   const [checking, setChecking] = useState(true)
   const [demoAcknowledged, setDemoAcknowledged] = useState(false)
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false)
@@ -55,6 +57,7 @@ export default function WelcomePage({ onReady }: Props) {
 
   return (
     <main className="wizard-dark wizard-welcome">
+      <RestartButton onRestart={onRestart} />
       <p className="wizard-disclosure">
         This is a demonstration of a brokerage account-onboarding experience. All data is synthetic; no real
         identity, KYC, AML, or fraud check occurs.

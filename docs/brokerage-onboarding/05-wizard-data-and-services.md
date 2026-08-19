@@ -11,8 +11,8 @@ There are **21 workflow activities**, but only **8 user-facing wizard screens**.
 | Wizard screen | User-entered data | Workflow activities covered |
 | --- | --- | --- |
 | 1. Welcome and consent | demo acknowledgement; privacy/disclosure acknowledgement | 1 Welcome, 2 create/resume application |
-| 2. Personal information | synthetic preferred/legal-name components, date-of-birth format, email-format contact, phone-format contact, residential country | 3 personal information, 4 mock age/identity pre-check |
-| 3. Address and tax residency | residential/mailing address; residency/citizenship/tax-residency selections | 5 address, 6 mock normalization, 7 citizenship/tax-profile rules |
+| 2. Personal information | synthetic preferred/legal-name components (incl. suffix), date-of-birth format, email-format contact, required phone-format contact, full residential address, optional mailing address, marital status, citizenship, and brokerage-inspired regulatory/affiliation questions (broker-dealer affiliation, control-person status, PEP status) — see `docs/06`'s UI-S1-002 for the full field table and the rationale for folding this in here rather than a separate screen | 3 personal information, 4 mock age/identity pre-check |
+| 3. Address and tax residency | *(deferred — its intended fields were folded into screen 2/activity 3 instead; see `docs/06`)* | 5 address, 6 mock normalization, 7 citizenship/tax-profile rules *(not separately implemented)* |
 | 4. Employment and financial profile | employment status, occupation/industry, income range, liquid/total net-worth ranges, expense range | 8 employment/income, 9 financial profile, 10 completeness/eligibility mock check |
 | 5. Objectives and account features | objectives, horizon, liquidity/risk selections, account type, cash/margin, options interest | 11 objectives, 12 account configuration, 13 mock feature eligibility |
 | 6. Contacts, disclosures, and agreements | trusted-contact/beneficiary opt-ins; disclosure and agreement acknowledgements | 14 contacts, 15 disclosures, 16 agreements |

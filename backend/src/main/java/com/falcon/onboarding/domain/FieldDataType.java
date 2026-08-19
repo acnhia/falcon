@@ -5,5 +5,7 @@ public enum FieldDataType {
     DATE,
     EMAIL,
     PHONE,
-    COUNTRY
+    COUNTRY,
+    BOOLEAN,
+    ENUM
 }

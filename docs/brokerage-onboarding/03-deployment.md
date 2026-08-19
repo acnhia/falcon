@@ -178,3 +178,4 @@ React static client
 - Smoke tests verify HTTPS, health/readiness endpoints, CORS, synthetic onboarding creation, capture-token expiry, and disabled-provider messages.
 - No CI environment stores real driver-license images. Fixtures must be synthetic and clearly labelled.
 - Do not deploy a live market feed, real validation provider, or live AI provider merely because credentials exist; each requires an explicit environment enablement decision.
+- Environment configuration must keep every address, tax, funding, screening, and final-decision adapter in its documented mock/approved mode. The four-section activity/status boundaries are defined in [wizard component user stories](06-wizard-component-user-stories.md).

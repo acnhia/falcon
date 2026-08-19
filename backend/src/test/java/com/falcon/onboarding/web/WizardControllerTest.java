@@ -50,7 +50,16 @@ class WizardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fields": {"legalFirstName":"Ada","legalLastName":"Lovelace",
-                                "dateOfBirth":"1990-01-01","email":"ada@example.test","residentialCountry":"US"},
+                                "dateOfBirth":"1990-01-01","email":"ada@example.test","phone":"555-123-4567",
+                                "residentialCountry":"US","residentialAddressLine1":"123 Synthetic St",
+                                "residentialCity":"Springfield","residentialState":"IL","residentialPostalCode":"62701",
+                                "maritalStatus":"SINGLE","citizenship":"US_CITIZEN",
+                                "isBrokerDealerAffiliated":"false","isControlPerson":"false","isPoliticallyExposedPerson":"false",
+                                "employmentStatus":"EMPLOYED","annualIncomeRange":"FROM_50K_TO_100K",
+                                "netWorthRange":"FROM_50K_TO_100K","liquidNetWorthRange":"FROM_25K_TO_50K",
+                                "sourceOfFunds":"EMPLOYMENT_INCOME","investmentObjective":"GROWTH","riskTolerance":"MODERATE",
+                                "investmentExperience":"LIMITED","timeHorizon":"LONG_TERM","deliveryPreference":"E_DELIVERY",
+                                "w9Certification":"true","esignatureConsent":"true"},
                                 "idempotencyKey": "%s"}
                                 """.formatted(UUID.randomUUID())))
                 .andExpect(status().isOk())

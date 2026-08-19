@@ -131,6 +131,23 @@ export async function requestCaptureLink(publicReference: string): Promise<Captu
   return res.json()
 }
 
+export interface FieldProposalFromText {
+  fieldKey: string
+  value: string
+}
+
+/** Runs the chat composer's typed/pasted text through a narrow, server-side extraction call. Never applies values directly. */
+export async function extractFieldsFromText(text: string): Promise<FieldProposalFromText[]> {
+  const res = await fetch(`${API_BASE}/onboarding/assistant/extract-fields`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (!res.ok) throw await responseError(res, 'Could not process that message right now')
+  const body: { proposals: FieldProposalFromText[] } = await res.json()
+  return body.proposals
+}
+
 export async function getCaptureContext(token: string): Promise<CaptureContextResponse> {
   const res = await fetch(`${API_BASE}/onboarding/captures/${encodeURIComponent(token)}`)
   if (!res.ok) throw await responseError(res, 'This capture link is invalid or has expired.')

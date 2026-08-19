@@ -1,6 +1,8 @@
 package com.falcon.onboarding.service;
 
 import com.falcon.onboarding.domain.ActivityStatus;
+import com.falcon.onboarding.domain.EnumFieldValues;
+import com.falcon.onboarding.domain.FieldDataType;
 import com.falcon.onboarding.domain.FieldDefinition;
 import com.falcon.onboarding.domain.FieldValue;
 import com.falcon.onboarding.domain.OnboardingActivity;
@@ -22,6 +24,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class DefaultWizardOrchestrator implements WizardOrchestrator {
@@ -75,6 +79,7 @@ public class DefaultWizardOrchestrator implements WizardOrchestrator {
             return buildResumeState(application);
         }
         requireSupportedActivity(activityNumber);
+        validateFieldValues(activityNumber, fields);
 
         Map<String, FieldValue> before = fieldValueRepository.findAllForApplication(application.id());
         String previousDateOfBirth = valueOf(before, DATE_OF_BIRTH_FIELD);
@@ -171,6 +176,33 @@ public class DefaultWizardOrchestrator implements WizardOrchestrator {
                         .toList(),
                 values.entrySet().stream().collect(java.util.stream.Collectors.toMap(
                         Map.Entry::getKey, entry -> entry.getValue().value())));
+    }
+
+    /**
+     * Generic allowlist check for the ENUM/BOOLEAN-typed fields, driven by
+     * {@code field_definition} rather than a per-field-key switch - the only
+     * validation this codebase has beyond required-field presence-checking.
+     * Format validation (email/phone/date/ZIP) remains a known, deliberately
+     * unaddressed gap.
+     */
+    private void validateFieldValues(int activityNumber, Map<String, String> fields) {
+        Map<String, FieldDataType> dataTypes = fieldDefinitionRepository.findByActivityNumber(activityNumber).stream()
+                .collect(Collectors.toMap(FieldDefinition::fieldKey, FieldDefinition::dataType));
+        for (Map.Entry<String, String> entry : fields.entrySet()) {
+            String value = entry.getValue();
+            if (isBlank(value)) {
+                continue;
+            }
+            FieldDataType dataType = dataTypes.get(entry.getKey());
+            if (dataType == FieldDataType.ENUM) {
+                Set<String> allowedValues = EnumFieldValues.allowedValuesFor(entry.getKey());
+                if (allowedValues != null && !allowedValues.contains(value)) {
+                    throw new TaskValidationException("Invalid value for " + entry.getKey() + ": " + value);
+                }
+            } else if (dataType == FieldDataType.BOOLEAN && !"true".equals(value) && !"false".equals(value)) {
+                throw new TaskValidationException("Invalid boolean value for " + entry.getKey() + ": " + value);
+            }
+        }
     }
 
     private static void requireSupportedActivity(int activityNumber) {

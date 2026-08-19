@@ -139,3 +139,4 @@ The first POC may show these fields as synthetic-demo fields: preferred name, em
 - Mock browser-media tests cover permission grant, denial, stream cleanup, front/back replacement, and submission gating.
 - API client tests cover server failures and no-secret request behavior.
 - End-to-end tests cover creation through validated mock result using synthetic fixture files only.
+- The consolidated four-section wizard and its bottom background-status rail must implement [wizard component user stories](06-wizard-component-user-stories.md).

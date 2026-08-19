@@ -190,3 +190,4 @@ public abstract class BaseTask<I, O> {
 - Integration tests: repository persistence, object-storage port contract, transactional transitions, and idempotent retries.
 - Contract tests: storage, market-data, AI, and validation ports against mock adapters.
 - Security tests: oversized/malformed file rejection, token enumeration resistance, no public storage URL, and log-redaction assertions.
+- Implement the four-section wizard's persistence, bounded mock checks, status-rail responses, retry/idempotency behavior, and provider-neutral task stories in [wizard component user stories](06-wizard-component-user-stories.md).

@@ -1,6 +1,10 @@
 import { handleOnboardingRequest } from './onboarding/router'
+import {
+  AuthEnv, createSessionToken, readSessionCookie, sessionCookieHeader, verifyCaptcha, verifyCredentials, verifySessionToken,
+} from './auth'
+import { renderLoginPage } from './loginPage'
 
-interface Env {
+interface Env extends AuthEnv {
   UPLOADS: R2Bucket
   UPLOAD_SESSIONS: DurableObjectNamespace<UploadSession>
   STORAGE_QUOTA: DurableObjectNamespace<StorageQuota>
@@ -32,6 +36,17 @@ interface Session {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
+
+    if (request.method === 'POST' && url.pathname === '/api/auth/login') return handleLoginRequest(request, env)
+
+    const authenticated = await verifySessionToken(readSessionCookie(request), env.SESSION_SECRET ?? '')
+    if (!authenticated) {
+      if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/downloads/')) {
+        return json({ error: 'Login required' }, 401)
+      }
+      return html(renderLoginPage(env.TURNSTILE_SITE_KEY))
+    }
+
     const download = url.pathname.match(/^\/downloads\/([^/]+)$/)
     if (request.method === 'GET' && download) return downloadTransfer(env, download[1])
 
@@ -209,7 +224,28 @@ interface QuotaUsage {
   committed: Record<string, number>
 }
 
+async function handleLoginRequest(request: Request, env: Env): Promise<Response> {
+  if (!env.SESSION_SECRET) return json({ error: 'Login is not configured' }, 503)
+
+  const form = await request.formData()
+  const username = String(form.get('username') ?? '')
+  const password = String(form.get('password') ?? '')
+  const captchaToken = String(form.get('cf-turnstile-response') ?? '')
+
+  const captchaOk = env.TURNSTILE_SECRET_KEY
+    ? await verifyCaptcha(env.TURNSTILE_SECRET_KEY, captchaToken, request.headers.get('cf-connecting-ip') ?? undefined)
+    : false
+
+  if (!captchaOk || !verifyCredentials(env, username, password)) {
+    return html(renderLoginPage(env.TURNSTILE_SITE_KEY, { error: 'Invalid username, password, or verification - please try again.' }), 401)
+  }
+
+  const token = await createSessionToken(env.SESSION_SECRET)
+  return new Response(null, { status: 302, headers: { location: '/', 'set-cookie': sessionCookieHeader(token) } })
+}
+
 const json = (body: unknown, status = 200) => Response.json(body, { status })
+const html = (body: string, status = 200) => new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8' } })
 const safeFilename = (filename: string) => filename.replaceAll(/[^a-zA-Z0-9._-]/g, '_')
 const statusOf = (session: Session) => ({ sessionId: session.id, status: session.status, completedParts: session.parts.length, totalParts: session.totalParts })
 const MAX_APPLICATION_STORAGE_BYTES = 10 * 1024 * 1024 * 1024

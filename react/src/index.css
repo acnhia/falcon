@@ -22,8 +22,21 @@
   }
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
+  overflow-x: hidden;
+}
+
+/* The wizard's dark <main> can be shorter than the full page in some
+   viewport/content combinations, otherwise leaving the light-theme :root
+   background visible around/behind it - paint the whole page black whenever
+   a wizard screen is showing, not just the panel itself. */
+body:has(.wizard-dark) {
+  background: #050505;
 }
 
 .upload-page {
@@ -124,9 +137,11 @@ button:disabled {
   --wizard-text: #f2f2f2;
   --wizard-text-dim: #9a9a9a;
   --wizard-accent: #22c55e;
+  --wizard-accent-purple: #a78bfa;
 
   background: var(--wizard-bg);
   color: var(--wizard-text);
+  width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
   padding: 32px 24px;
@@ -145,6 +160,24 @@ button:disabled {
 
 .wizard-dark button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--wizard-accent) 16%, transparent);
+}
+
+.wizard-restart-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.wizard-restart-button {
+  font-size: 13px;
+  padding: 6px 12px;
+  color: var(--wizard-text-dim);
+  border-color: var(--wizard-border);
+}
+
+.wizard-restart-button:hover:not(:disabled) {
+  color: var(--wizard-text);
+  border-color: var(--wizard-text-dim);
 }
 
 .wizard-welcome {
@@ -172,22 +205,50 @@ button:disabled {
   margin: 0 auto;
 }
 
-.wizard-progress-overall {
-  display: flex;
-  align-items: center;
+/* One labelled bar segment per wizard step - completed steps stay filled so the bar
+   reads as cumulative progress, not just "which step am I on". */
+.wizard-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin: 12px 0 24px;
-  font-size: 13px;
-  color: var(--wizard-text-dim);
+  padding: 0;
 }
 
-.wizard-progress-overall .progress-bar {
-  flex: 1;
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wizard-step-bar {
+  height: 4px;
+  border-radius: 2px;
   background: var(--wizard-border);
 }
 
-.wizard-progress-overall .progress-fill {
+.wizard-step-done .wizard-step-bar,
+.wizard-step-current .wizard-step-bar {
   background: var(--wizard-accent);
+}
+
+.wizard-step-title {
+  font-size: 12px;
+  color: var(--wizard-text-dim);
+}
+
+.wizard-step-current .wizard-step-title {
+  color: var(--wizard-text);
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .wizard-steps {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 }
 
 .wizard-two-panel {
@@ -208,6 +269,30 @@ button:disabled {
   border: 1px solid var(--wizard-border);
   border-radius: 12px;
   padding: 20px;
+  min-width: 0;
+}
+
+/* Two responsive text-box columns - collapses to one below the breakpoint.
+   Group headers, the conditional blocks, actions, and errors span both
+   columns rather than being squeezed into one. */
+.wizard-form-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+  align-content: start;
+}
+
+.wizard-form-panel h3,
+.wizard-form-panel .wizard-conditional-block,
+.wizard-form-panel .actions,
+.wizard-form-panel .error {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 560px) {
+  .wizard-form-panel {
+    grid-template-columns: 1fr;
+  }
 }
 
 .wizard-field {
@@ -215,6 +300,7 @@ button:disabled {
   flex-direction: column;
   gap: 4px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .wizard-field label {
@@ -222,19 +308,59 @@ button:disabled {
   color: var(--wizard-text-dim);
 }
 
-.wizard-field input {
+.wizard-field input,
+.wizard-field-control {
   background: var(--wizard-bg);
   border: 1px solid var(--wizard-border);
   border-radius: 6px;
   color: var(--wizard-text);
   padding: 8px 10px;
   font-size: 14px;
+  width: 100%;
 }
 
+.wizard-field-label {
+  font-size: 13px;
+  color: var(--wizard-text-dim);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.wizard-conditional-block {
+  border-left: 2px solid var(--wizard-border);
+  padding-left: 12px;
+  margin: 4px 0 14px;
+}
+
+.wizard-form-panel h3 {
+  font-size: 14px;
+  color: var(--wizard-text-dim);
+  margin: 20px 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wizard-form-panel h3:first-child {
+  margin-top: 0;
+}
+
+/* VS Code chat panel look: a plain, low-chrome header, hairline-separated
+   messages instead of bubbles, and a single bordered input container with the
+   textarea on top and an icon toolbar along its bottom edge (mirrors the
+   Claude Code / VS Code chat input, not a chat-app bubble composer). */
 .wizard-chat-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.wizard-chat-panel h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wizard-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
 }
 
 .wizard-chat-log {
@@ -243,29 +369,106 @@ button:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 320px;
+  gap: 10px;
+  max-height: 720px;
+  min-height: 360px;
   overflow-y: auto;
 }
 
+/* Chat-bot style speech bubbles: rounded, filled, with the corner nearest the
+   speaker squared off so each bubble visually points back to its sender. */
 .wizard-chat-message {
-  border-radius: 8px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   font-size: 13px;
+  border-radius: 14px;
+  max-width: 82%;
+  width: fit-content;
 }
 
 .wizard-chat-message p {
   margin: 0 0 6px;
+  line-height: 1.5;
 }
 
+.wizard-chat-message p:last-child {
+  margin-bottom: 0;
+}
+
+.wizard-chat-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  margin-left: 2px;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: chat-cursor-blink 0.9s step-start infinite;
+}
+
+@keyframes chat-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The bot speaks from the left (purple), the user from the right (green). */
 .wizard-chat-assistant {
-  background: var(--wizard-bg);
-  border: 1px solid var(--wizard-border);
+  align-self: flex-start;
+  color: var(--wizard-text);
+  background: color-mix(in srgb, var(--wizard-accent-purple) 16%, var(--wizard-bg));
+  border: 1px solid color-mix(in srgb, var(--wizard-accent-purple) 34%, var(--wizard-border));
+  border-bottom-left-radius: 4px;
 }
 
 .wizard-chat-user {
+  align-self: flex-end;
+  color: var(--wizard-text);
   background: color-mix(in srgb, var(--wizard-accent) 18%, var(--wizard-bg));
   border: 1px solid color-mix(in srgb, var(--wizard-accent) 40%, var(--wizard-border));
+  border-bottom-right-radius: 4px;
+}
+
+.wizard-chat-message button {
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-top: 4px;
+}
+
+/* Single bordered container, textarea on top, icon toolbar along the bottom
+   edge inside the same border - matches the VS Code/Claude Code chat input,
+   not a chat-app row of separate square buttons. */
+.wizard-composer {
+  display: flex;
+  flex-direction: column;
+  background: var(--wizard-bg);
+  border: 1px solid var(--wizard-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.wizard-composer:focus-within {
+  border-color: var(--wizard-text-dim);
+}
+
+.wizard-composer-input {
+  resize: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--wizard-text);
+  padding: 10px 12px 4px;
+  font-size: 14px;
+  font-family: inherit;
+  max-height: 120px;
+}
+
+.wizard-composer-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px 6px;
+}
+
+.wizard-composer-spacer {
+  flex: 1;
 }
 
 .wizard-mic-button[aria-pressed='true'] {
@@ -273,10 +476,34 @@ button:disabled {
   color: var(--wizard-bg);
 }
 
-.wizard-voice-control {
+.wizard-mute-button[aria-pressed='true'] {
+  background: var(--error);
+  color: #fff;
+}
+
+.wizard-icon-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  font-size: 15px;
+  border-radius: 6px;
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--wizard-text-dim);
+}
+
+.wizard-icon-button:hover:not(:disabled) {
+  background: var(--wizard-border);
+  color: var(--wizard-text);
+}
+
+.wizard-send-button {
+  color: var(--wizard-accent);
 }
 
 .wizard-voice-unsupported {
@@ -285,8 +512,11 @@ button:disabled {
 }
 
 .voice-orb {
-  width: 28px;
-  height: 28px;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, var(--wizard-accent), color-mix(in srgb, var(--wizard-accent) 40%, transparent));
   flex-shrink: 0;
@@ -318,4 +548,62 @@ button:disabled {
   to {
     filter: hue-rotate(30deg);
   }
+}
+
+.wizard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.wizard-modal {
+  background: var(--wizard-panel);
+  border: 1px solid var(--wizard-border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.wizard-modal h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.wizard-modal p {
+  font-size: 14px;
+  color: var(--wizard-text-dim);
+  margin: 0 0 12px;
+}
+
+.wizard-modal-checks {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wizard-modal-checks li {
+  font-size: 14px;
+  color: var(--wizard-text);
+  padding-left: 18px;
+  position: relative;
+}
+
+.wizard-modal-checks li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wizard-accent);
 }
