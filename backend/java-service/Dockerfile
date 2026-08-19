@@ -7,6 +7,6 @@ RUN mvn -q -B package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /build/target/upload-demo.jar ./app.jar
+COPY --from=build /build/target/falcon-backend.jar ./app.jar
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

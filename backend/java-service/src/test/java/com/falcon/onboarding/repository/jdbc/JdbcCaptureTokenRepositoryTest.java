@@ -2,7 +2,7 @@ package com.falcon.onboarding.repository.jdbc;
 
 import com.falcon.onboarding.domain.CaptureToken;
 import com.falcon.onboarding.repository.CaptureTokenRepository;
-import com.falcon.upload.UploadDemoApplication;
+import com.falcon.FalconApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,7 +13,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(classes = UploadDemoApplication.class)
+@SpringBootTest(classes = FalconApplication.class)
 class JdbcCaptureTokenRepositoryTest {
 
     @Autowired

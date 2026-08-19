@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>com.falcon</groupId>
-    <artifactId>upload-demo</artifactId>
+    <artifactId>falcon-backend</artifactId>
     <version>1.0.0</version>
-    <name>upload-demo</name>
-    <description>Multipart upload to Cloudflare R2 - learning demo</description>
+    <name>falcon-backend</name>
+    <description>Falcon backend: brokerage-onboarding reference implementation and the file-transfer demo</description>
 
     <properties>
         <java.version>21</java.version>
@@ -55,7 +55,7 @@
     </dependencies>
 
     <build>
-        <finalName>upload-demo</finalName>
+        <finalName>falcon-backend</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

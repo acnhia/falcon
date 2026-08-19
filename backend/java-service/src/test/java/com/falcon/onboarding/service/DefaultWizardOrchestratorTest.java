@@ -2,7 +2,7 @@ package com.falcon.onboarding.service;
 
 import com.falcon.onboarding.domain.OnboardingApplication;
 import com.falcon.onboarding.exception.TaskValidationException;
-import com.falcon.upload.UploadDemoApplication;
+import com.falcon.FalconApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,7 +15,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest(classes = UploadDemoApplication.class)
+@SpringBootTest(classes = FalconApplication.class)
 class DefaultWizardOrchestratorTest {
 
     @Autowired

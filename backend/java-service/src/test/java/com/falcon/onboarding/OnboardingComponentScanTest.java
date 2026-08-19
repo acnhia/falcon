@@ -1,13 +1,13 @@
 package com.falcon.onboarding;
 
 import com.falcon.onboarding.config.OnboardingProperties;
-import com.falcon.upload.UploadDemoApplication;
+import com.falcon.FalconApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(classes = UploadDemoApplication.class)
+@SpringBootTest(classes = FalconApplication.class)
 class OnboardingComponentScanTest {
 
     @org.springframework.beans.factory.annotation.Autowired
