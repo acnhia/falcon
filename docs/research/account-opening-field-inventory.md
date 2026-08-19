@@ -1,6 +1,6 @@
 #  Online Brokerage Account — Application Field Inventory
 
-**Source:** `apply..com/trade` (live application, "General investing" / Standard account track)
+**Source:** a major US brokerage's live public application, institution de-identified ("General investing" / Standard account track)
 **Method:** Walked the application with sample/placeholder data. All non-SSN fields were filled with fictitious values by the assistant. The SSN field itself was filled by the human user directly (the assistant does not enter SSNs into any field).
 **Date captured:** 2026-08-18
 
@@ -8,8 +8,8 @@
 
 After the user entered a sample SSN and submitted the "Agree and continue" step, the application **did not unlock Section 2**. Instead, the live Social Security Administration identity-verification check ran against the submitted name/DOB/SSN combination, found no match (since the identity was fictitious), and routed straight to a hard-stop screen:
 
-> **"We need a little more info"** — *"Give us a call at 1-877-487-1207, Monday through Friday, 9 am – 8 pm ET to complete your application."*
-> (URL fragment: `#/OSMA_APPL_STOP_PAGE`)
+> **"We need a little more info"** — *"Give us a call at [support number redacted], Monday through Friday, 9 am – 8 pm ET to complete your application."*
+> (the application routed to a hard-stop page)
 
 This means Sections 2–4 (Employment & finances, Regulatory & affiliations, Additional details) **cannot be reached with fabricated identity data at all** — this isn't just a self-imposed limit, it's the form's own fraud/identity-verification logic blocking any non-matching SSN, regardless of who enters it. Only a real, SSA-verifiable identity would proceed past this gate. As a result, Sections 2–4 below remain unverified estimates.
 
