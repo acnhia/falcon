@@ -10,7 +10,7 @@ CLOUDFLARE     := infrastructure/cloudflare
 COMPOSE_FILE   := infrastructure/local/compose.yaml
 
 # The Java toolchain runs in a container so no local JDK or Maven install is required.
-MVN := docker run --rm -v "$(PWD)/$(JAVA_SERVICE)":/build -w /build -v maven-repo:/root/.m2 maven:3.9-eclipse-temurin-21 mvn
+MVN := docker run --rm -v "$(PWD)/backend":/build -w /build/java-service -v maven-repo:/root/.m2 maven:3.9-eclipse-temurin-21 mvn
 
 .DEFAULT_GOAL := help
 .PHONY: help install test test-java test-worker test-frontend check build deploy up down clean

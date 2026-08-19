@@ -1,0 +1,483 @@
+{
+  "$comment": "Canonical onboarding field contract. Generated once from the runtimes it now governs; edit this file, then let the parity tests tell you which runtime disagrees.",
+  "version": 1,
+  "activityNumber": 3,
+  "fields": [
+    {
+      "key": "legalFirstName",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "middleName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "legalLastName",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "suffix",
+      "type": "ENUM",
+      "required": false,
+      "allowedValues": [
+        "JR",
+        "SR",
+        "I",
+        "II",
+        "III",
+        "IV"
+      ]
+    },
+    {
+      "key": "preferredFirstName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "preferredLastName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "dateOfBirth",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "email",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "phone",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "residentialAddressLine1",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "residentialAddressLine2",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "residentialCity",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "residentialState",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
+        "PR"
+      ]
+    },
+    {
+      "key": "residentialPostalCode",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "residentialCountry",
+      "type": "STRING",
+      "required": true
+    },
+    {
+      "key": "hasMailingAddress",
+      "type": "BOOLEAN",
+      "required": false
+    },
+    {
+      "key": "mailingAddressLine1",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "mailingAddressLine2",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "mailingCity",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "mailingState",
+      "type": "ENUM",
+      "required": false,
+      "allowedValues": [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
+        "PR"
+      ]
+    },
+    {
+      "key": "mailingPostalCode",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "maritalStatus",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "SINGLE",
+        "MARRIED",
+        "DIVORCED",
+        "WIDOWED"
+      ]
+    },
+    {
+      "key": "citizenship",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "US_CITIZEN",
+        "RESIDENT_ALIEN",
+        "NON_RESIDENT_ALIEN"
+      ]
+    },
+    {
+      "key": "isBrokerDealerAffiliated",
+      "type": "BOOLEAN",
+      "required": true
+    },
+    {
+      "key": "brokerDealerFirmName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "isControlPerson",
+      "type": "BOOLEAN",
+      "required": true
+    },
+    {
+      "key": "controlPersonCompany",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "isPoliticallyExposedPerson",
+      "type": "BOOLEAN",
+      "required": true
+    },
+    {
+      "key": "hasOtherBrokerageAccounts",
+      "type": "BOOLEAN",
+      "required": false
+    },
+    {
+      "key": "employmentStatus",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "EMPLOYED",
+        "SELF_EMPLOYED",
+        "RETIRED",
+        "STUDENT",
+        "HOMEMAKER",
+        "UNEMPLOYED"
+      ]
+    },
+    {
+      "key": "employerName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "occupation",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "employerAddress",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "yearsWithEmployer",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "annualIncomeRange",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "UNDER_25K",
+        "FROM_25K_TO_50K",
+        "FROM_50K_TO_100K",
+        "FROM_100K_TO_200K",
+        "FROM_200K_TO_500K",
+        "OVER_500K"
+      ]
+    },
+    {
+      "key": "netWorthRange",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "UNDER_25K",
+        "FROM_25K_TO_50K",
+        "FROM_50K_TO_100K",
+        "FROM_100K_TO_200K",
+        "FROM_200K_TO_500K",
+        "OVER_500K"
+      ]
+    },
+    {
+      "key": "liquidNetWorthRange",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "UNDER_25K",
+        "FROM_25K_TO_50K",
+        "FROM_50K_TO_100K",
+        "FROM_100K_TO_200K",
+        "FROM_200K_TO_500K",
+        "OVER_500K"
+      ]
+    },
+    {
+      "key": "taxBracketRange",
+      "type": "ENUM",
+      "required": false,
+      "allowedValues": [
+        "LOW",
+        "MODERATE",
+        "HIGH",
+        "HIGHEST"
+      ]
+    },
+    {
+      "key": "sourceOfFunds",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "EMPLOYMENT_INCOME",
+        "INVESTMENTS",
+        "INHERITANCE",
+        "RETIREMENT_SAVINGS",
+        "BUSINESS_INCOME",
+        "OTHER"
+      ]
+    },
+    {
+      "key": "investmentObjective",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "INCOME",
+        "GROWTH",
+        "GROWTH_AND_INCOME",
+        "SPECULATION",
+        "CAPITAL_PRESERVATION"
+      ]
+    },
+    {
+      "key": "riskTolerance",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "CONSERVATIVE",
+        "MODERATE",
+        "AGGRESSIVE"
+      ]
+    },
+    {
+      "key": "investmentExperience",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "NONE",
+        "LIMITED",
+        "GOOD",
+        "EXTENSIVE"
+      ]
+    },
+    {
+      "key": "timeHorizon",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "SHORT_TERM",
+        "MEDIUM_TERM",
+        "LONG_TERM"
+      ]
+    },
+    {
+      "key": "trustedContactName",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "trustedContactPhone",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "trustedContactEmail",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "trustedContactRelationship",
+      "type": "STRING",
+      "required": false
+    },
+    {
+      "key": "wantsMarginAccount",
+      "type": "BOOLEAN",
+      "required": false
+    },
+    {
+      "key": "wantsOptionsTrading",
+      "type": "BOOLEAN",
+      "required": false
+    },
+    {
+      "key": "wantsDividendReinvestment",
+      "type": "BOOLEAN",
+      "required": false
+    },
+    {
+      "key": "deliveryPreference",
+      "type": "ENUM",
+      "required": true,
+      "allowedValues": [
+        "E_DELIVERY",
+        "PAPER"
+      ]
+    },
+    {
+      "key": "costBasisMethod",
+      "type": "ENUM",
+      "required": false,
+      "allowedValues": [
+        "FIFO",
+        "LIFO",
+        "SPECIFIC_IDENTIFICATION",
+        "AVERAGE_COST"
+      ]
+    },
+    {
+      "key": "w9Certification",
+      "type": "BOOLEAN",
+      "required": true
+    },
+    {
+      "key": "esignatureConsent",
+      "type": "BOOLEAN",
+      "required": true
+    }
+  ]
+}
