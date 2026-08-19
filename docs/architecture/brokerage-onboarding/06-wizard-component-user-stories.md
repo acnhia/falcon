@@ -57,7 +57,7 @@ The system records acknowledgement code/version/timestamp only. The user cannot 
 
 **As a demo applicant,** I enter synthetic personal, address, and regulatory-disclosure details for the POC. This story deliberately absorbs what a strict 21-activity/8-screen split would put on a separate "address and tax residency" screen (activities 5–7) and the brokerage-inspired regulatory/affiliation questions, folded into this one screen to match how a real brokerage account-opening form actually presents them (one page, several sections) — see `context.md`'s decision log entry recording this scope choice. Screen 3 itself (a distinct wizard screen for address/tax-residency) remains unbuilt/deferred.
 
-**No real SSN/tax-ID is collected** — a deliberate, non-negotiable exclusion, even though it is central to the real form's own gating logic (see `account_opening_fields.md`).
+**No real SSN/tax-ID is collected** — a deliberate, non-negotiable exclusion, even though it is central to the real form's own gating logic (see `docs/research/account-opening-field-inventory.md`).
 
 | Field | Requirement | Validation/source |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ The system records acknowledgement code/version/timestamp only. The user cannot 
 
 The dark landing workspace places the form left (grouped into Personal / Address / Mailing address / Marital status & citizenship / Regulatory & affiliations / Employment & finances / Investing objectives / Trusted contact / Account features / Delivery & tax certifications subsections), a full chat window right (persistent text composer plus a voice button — not just a suggestion trigger), and status rail below. Chat/voice proposals require explicit `Use this`; they cannot overwrite confirmed values. Typed or pasted chat text is run through a narrow-scope structured-extraction call (Worker-only; see `context.md`'s "AI and voice" section) that proposes values for any fields it can identify in the text — never auto-applies them.
 
-This completes the fields observed/inferred in `account_opening_fields.md` (Sections 1–4), minus the excluded SSN, with the documented simplifications above (single-select instead of multi-select, one-line employer address, one overall investment-experience level).
+This completes the fields observed/inferred in `docs/research/account-opening-field-inventory.md` (Sections 1–4), minus the excluded SSN, with the documented simplifications above (single-select instead of multi-select, one-line employer address, one overall investment-experience level).
 
 ### UI-S1-003 — Mock pre-check status (activity 4)
 

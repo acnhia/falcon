@@ -22,7 +22,7 @@ Every new user requirement must be recorded in this file before implementation w
 
 ## Repository structure and ownership boundaries
 
-Recorded 2026-08-19 following the principal-engineer assessment in `code standards review.md`. Application code, deployment code, and documentation must occupy distinct, correctly named top-level boundaries.
+Recorded 2026-08-19 following the principal-engineer assessment in `docs/adr/0001-code-standards-review.md`. Application code, deployment code, and documentation must occupy distinct, correctly named top-level boundaries.
 
 - Top-level layout is `backend/` (server and edge runtimes), `frontend/` (browser application), `infrastructure/` (deployment, provisioning, local runtime), and `docs/` (requirements, architecture, ADRs, research).
 - `backend/` contains `java-service/` (Spring Boot reference implementation), `edge-worker/` (the deployed Worker runtime), and `contracts/` (versioned API contract, shared field catalogue, and parity tests).
@@ -123,9 +123,9 @@ Recorded 2026-08-19 following the principal-engineer assessment in `code standar
 ### Resumable account-onboarding wizard
 
 - The account-onboarding POC has 21 workflow activities but must use a smaller, intuitive set of user-facing wizard screens. Activities that are background checks, derivations, or system operations must show status and recovery information rather than unnecessarily forcing a separate screen.
-- The detailed activity-to-screen mapping, normalized persistence model, retry/resume rules, and logical module boundaries are maintained in `docs/brokerage-onboarding/05-wizard-data-and-services.md`.
+- The detailed activity-to-screen mapping, normalized persistence model, retry/resume rules, and logical module boundaries are maintained in `docs/architecture/brokerage-onboarding/05-wizard-data-and-services.md`.
 - A partially complete application must resume at the earliest incomplete required activity using server-persisted state. Each save/continue/check request must be idempotent and safe to retry.
 - Derived/API fields are mock-provider outputs in this POC, visibly labelled with source and status. Users may correct relevant source data; the system must invalidate and rerun dependent derived checks.
 - Begin with a modular monolith behind `onboarding-api-worker`; do not create a microservice per workflow activity without a demonstrated ownership, scaling, or deployment need.
 - Consolidate the 21 internal workflow activities into four user-facing sections: Identity and residency; Financial profile and account choices; Verification, contacts, and agreements; Review and submit. Background checks must appear in an accessible bottom status rail rather than as separate wizard screens.
-- The canonical user stories, fields, status messaging, backend responsibilities, and test expectations are in `docs/brokerage-onboarding/06-wizard-component-user-stories.md`.
+- The canonical user stories, fields, status messaging, backend responsibilities, and test expectations are in `docs/architecture/brokerage-onboarding/06-wizard-component-user-stories.md`.

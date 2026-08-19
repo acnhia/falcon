@@ -3,7 +3,7 @@
 A demonstration-only brokerage-account onboarding experience: a React frontend, a Java 21 /
 Spring Boot backend, and a resumable, server-persisted workflow engine. Built to show engineering
 discipline (TDD, provider-neutral adapters, cloud-portable deployment) — **not** a real brokerage
-service. See [`context.md`](context.md) and [`docs/brokerage-onboarding/`](docs/brokerage-onboarding)
+service. See [`context.md`](context.md) and [`docs/architecture/brokerage-onboarding/`](docs/architecture/brokerage-onboarding)
 for the full requirements, decision log, and design.
 
 ## Safety boundaries
@@ -36,7 +36,7 @@ React (Vite)                    Java / Spring Boot                H2 (JDBC)
   one `TaskRegistry`-allowlisted task → one orchestrator method. Clients can never select an
   arbitrary class — only a fixed, named set of tasks.
 - **Resumable workflow**: the onboarding journey is modeled as 21 workflow activities surfaced
-  through 8 wizard screens (see [`05-wizard-data-and-services.md`](docs/brokerage-onboarding/05-wizard-data-and-services.md)).
+  through 8 wizard screens (see [`05-wizard-data-and-services.md`](docs/architecture/brokerage-onboarding/05-wizard-data-and-services.md)).
   Server-persisted activity state — not browser state — decides where a user resumes.
 - **Persistence**: plain JDBC + H2 (file-based locally, in-memory for tests) — no ORM, matching the
   rest of the codebase's raw-SQL style. Postgres-portable schema for a future managed database.
@@ -49,7 +49,7 @@ React (Vite)                    Java / Spring Boot                H2 (JDBC)
 | Wizard screens 1–2 of 8 (welcome/consent, personal information) | ✅ Implemented and tested |
 | Identity-capture flow (capture link → front/back document → mock validation) | ✅ Implemented and tested |
 | Resumable state, idempotent retry, stale-dependency marking (date-of-birth → pre-check) | ✅ Implemented and tested |
-| Wizard screens 3–8, market ticker, server-side assistant module | ⏳ Not started — see the decision log in `context.md` |
+| Remaining wizard sections (four-section model), market ticker, server-side assistant module | ⏳ Not started — see the decision log in `context.md` |
 
 Backend: 74 tests passing (`mvn test`, via the Dockerized Maven run below). Frontend: 50 tests
 passing (`npm test`), plus a clean `tsc --noEmit`, `npm run build`, and `oxlint`.
@@ -57,7 +57,7 @@ passing (`npm test`), plus a clean `tsc --noEmit`, `npm run build`, and `oxlint`
 ## Running it locally
 
 This repo also contains an earlier, separate multipart-file-transfer learning demo
-(`backend/src/main/java/com/falcon/upload`, `react/src/upload`) — unrelated to onboarding, kept
+(`backend/java-service/src/main/java/com/falcon/upload`, `frontend/src/upload`) — unrelated to onboarding, kept
 isolated by package/route, and served at `#/upload` in the same React app. Both share one
 `docker-compose.yml`:
 
@@ -91,13 +91,43 @@ docker run --rm -v "$(pwd)/backend":/workspace -w /workspace maven:3.9-eclipse-t
 ## Project structure
 
 ```
-backend/   Spring Boot 3 / Java 21
-           src/main/java/com/falcon/onboarding/  the onboarding POC (domain, workflow, task, repository/jdbc, web)
-           src/main/java/com/falcon/upload/       the unrelated file-transfer demo
-react/     Vite + React
-           src/onboarding/   OnboardingWizard, WelcomePage, PersonalInformationPage, DocumentCapturePage, mockAssistant
-           src/upload/       the unrelated file-transfer demo
-infra/     Cloud deployment adapters (currently: Cloudflare Workers/R2/D1 for the file-transfer demo — see infra/README.md)
-docs/brokerage-onboarding/   requirements, architecture, and the 21-activity/8-screen wizard design
-context.md   durable decision log and implementation-status record for the onboarding POC
+backend/
+  java-service/    Spring Boot 3 / Java 21 - reference implementation, not deployed
+                   src/main/java/com/falcon/FalconApplication.java   entry point
+                   src/main/java/com/falcon/onboarding/              onboarding (domain, workflow,
+                                                                     task, repository/jdbc, web)
+                   src/main/java/com/falcon/upload/                  file-transfer demo
+  edge-worker/     Cloudflare Worker - the canonical production runtime
+                   src/index.ts            thin entrypoint: authenticate, then dispatch
+                   src/auth/               login gate, session signing, login page
+                   src/platform/           Cloudflare primitives (Durable Objects, bindings)
+                   src/fileTransfer/       file-transfer demo, isolated from onboarding
+                   src/onboarding/         domain, repository, service, assistant,
+                                           validation, workflow, web
+  contracts/       versioned API contract and cross-runtime parity tests
+frontend/          Vite + React
+                   src/onboarding/   the onboarding wizard
+                   src/upload/       the unrelated file-transfer demo
+infrastructure/
+  cloudflare/      wrangler config, migrations, provisioning and deploy scripts
+  local/           compose.yaml + nginx for the local stack
+docs/
+  requirements/  architecture/  adr/  research/
+Makefile           single task runner - run `make help`
+context.md         durable decision log and implementation status
+REQUIREMENTS.md    global project requirements
+```
+
+Application code never lives under `infrastructure/`; that boundary holds only what deploys and
+provisions. The Worker is the canonical runtime and the Java service is an explicitly labelled
+reference implementation - see the decision log in `context.md`.
+
+## Common tasks
+
+```
+make help      # list every target
+make test      # Java (81) + edge worker (46) + frontend (89)
+make check     # typecheck and lint everything
+make up        # local Java + frontend + nginx stack
+make deploy    # containerised test, build, provision and deploy
 ```

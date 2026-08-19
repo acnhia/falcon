@@ -147,7 +147,7 @@ React static client
 
 - Host static React assets on Workers/Pages or behind a Worker custom domain.
 - **The onboarding API (activities 1-4, identity capture) runs directly on the Worker**, backed by
-  its own D1 database (`ONBOARDING_DB` binding, isolated `infra/cloudflare/src/onboarding/` module,
+  its own D1 database (`ONBOARDING_DB` binding, isolated `backend/edge-worker/src/onboarding/` module,
   separate migration set from the file-transfer demo's `TRANSFERS` binding) and the same R2 bucket
   used for file transfers, under a distinct `onboarding/` key prefix. This is a second, parallel
   implementation of the same API contract as the Java backend — not the Java backend itself, since
@@ -156,7 +156,7 @@ React static client
 - One known, deliberate gap versus the Java reference implementation: document validation on the
   Worker checks file size, MIME allowlist, and a magic-byte/header-based width/height read for
   JPEG/PNG (WebP is signature-checked only, no dimension read) rather than a full image decode —
-  Workers has no `ImageIO`-equivalent decoder. See `infra/cloudflare/src/onboarding/documentValidation.ts`.
+  Workers has no `ImageIO`-equivalent decoder. See `backend/edge-worker/src/onboarding/validation/documentValidation.ts`.
 - For a future adapter that instead calls a separately-hosted Java service (e.g. if activities 5-21
   are built there before being ported to Workers): use a Worker only for edge/static/API routing,
   and bind R2/D1 only when the selected adapter uses them, retaining private-object access through

@@ -10,10 +10,10 @@ The deployment also enforces a **10 GiB application storage ceiling**. Before an
 
 ### Launching a deployment
 
-`infra/cloudflare/scripts/launch.mjs` is the single entry point that deploys every essential artifact in order:
+`infrastructure/cloudflare/scripts/launch.mjs` is the single entry point that deploys every essential artifact in order:
 
 1. Install and type-check the Worker, then run its test suite.
-2. Install, type-check, test, and build the React frontend (`react/dist`).
+2. Install, type-check, test, and build the React frontend (`frontend/dist`).
 3. Provision the R2 bucket idempotently (`scripts/provision-r2.mjs` creates it if missing, reuses it otherwise).
 4. Provision the D1 database and apply the idempotent transfer schema (`scripts/provision-d1.mjs`).
 5. Run `wrangler deploy`, which publishes both the static React assets and the Worker.
@@ -23,7 +23,7 @@ Both `account_id` and `api_token` must already be set in the root `.env` file; `
 **Recommended: run it in a container**, so nothing needs to be installed locally beyond Docker itself:
 
 ```bash
-cd infra/cloudflare
+cd infrastructure/cloudflare
 npm run launch:docker
 ```
 
@@ -32,7 +32,7 @@ This builds a throwaway Node image (`Dockerfile.deploy`), bind-mounts the reposi
 To run the same pipeline without Docker:
 
 ```bash
-cd infra/cloudflare
+cd infrastructure/cloudflare
 npm install
 npm run launch
 ```

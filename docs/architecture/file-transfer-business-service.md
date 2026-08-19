@@ -96,11 +96,11 @@ backend/
   src/main/java/com/falcon/onboarding/
                              Java reference onboarding service
 
-infra/cloudflare/
+infrastructure/cloudflare/
   src/                        Worker, Durable Objects, D1/R2 integration
   src/onboarding/             Cloudflare Worker onboarding implementation
 
-docs/brokerage-onboarding/    Detailed onboarding requirements
+docs/architecture/brokerage-onboarding/    Detailed onboarding requirements
 ```
 
 Cloud-neutral terms are used in business logic: tasks, actions, workers, storage, validation, and adapters. Provider-specific deployment choices stay in infrastructure modules.
@@ -111,13 +111,13 @@ Cloud-neutral terms are used in business logic: tasks, actions, workers, storage
 | --- | --- |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Global working agreement, TDD, file-transfer rules, onboarding boundaries. |
 | [context.md](context.md) | Durable project context, decisions, implementation status, and provider constraints. |
-| [Onboarding overview](docs/brokerage-onboarding/00-overview.md) | POC purpose, lifecycle, high-level stories. |
-| [Frontend requirements](docs/brokerage-onboarding/01-frontend.md) | Routes, UI, accessibility, capture, chat, and voice requirements. |
-| [Backend requirements](docs/brokerage-onboarding/02-backend.md) | Task-worker model, APIs, validation, persistence, and safety. |
-| [Deployment requirements](docs/brokerage-onboarding/03-deployment.md) | Local/demo environments, infrastructure, provider modes, deployment controls. |
-| [21-step workflow](docs/brokerage-onboarding/04-onboarding-flow.md) | Original detailed lifecycle activity map and recovery behavior. |
-| [Wizard data and service design](docs/brokerage-onboarding/05-wizard-data-and-services.md) | 21 activities, field model, normalized data structure, retry/resume, service boundaries. |
-| [Wizard component user stories](docs/brokerage-onboarding/06-wizard-component-user-stories.md) | Consolidated four-section stories, all user-captured fields, status rail, backend stories, and tests. |
+| [Onboarding overview](docs/architecture/brokerage-onboarding/00-overview.md) | POC purpose, lifecycle, high-level stories. |
+| [Frontend requirements](docs/architecture/brokerage-onboarding/01-frontend.md) | Routes, UI, accessibility, capture, chat, and voice requirements. |
+| [Backend requirements](docs/architecture/brokerage-onboarding/02-backend.md) | Task-worker model, APIs, validation, persistence, and safety. |
+| [Deployment requirements](docs/architecture/brokerage-onboarding/03-deployment.md) | Local/demo environments, infrastructure, provider modes, deployment controls. |
+| [21-step workflow](docs/architecture/brokerage-onboarding/04-onboarding-flow.md) | Original detailed lifecycle activity map and recovery behavior. |
+| [Wizard data and service design](docs/architecture/brokerage-onboarding/05-wizard-data-and-services.md) | 21 activities, field model, normalized data structure, retry/resume, service boundaries. |
+| [Wizard component user stories](docs/architecture/brokerage-onboarding/06-wizard-component-user-stories.md) | Consolidated four-section stories, all user-captured fields, status rail, backend stories, and tests. |
 
 ## Delivery rules
 
