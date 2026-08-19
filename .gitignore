@@ -1,19 +1,19 @@
 # secrets
 .env
 *.env.local
-infra/cloudflare/.dev.vars
+infrastructure/cloudflare/.dev.vars
 
 # java / maven
-backend/target/
-backend/data/
+backend/java-service/target/
+backend/java-service/data/
 *.class
 *.jar
 
 # node
 node_modules/
-react/dist/
-react/.vite/
-infra/cloudflare/.wrangler/
+frontend/dist/
+frontend/.vite/
+infrastructure/cloudflare/.wrangler/
 
 # os
 .DS_Store

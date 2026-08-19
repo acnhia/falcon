@@ -1,6 +1,8 @@
+# Local development runtime. Build contexts are repo-relative (../..) because this
+# file lives under infrastructure/local/ rather than at the repository root.
 services:
   backend:
-    build: ./backend
+    build: ../../backend/java-service
     environment:
       ACCOUNT_ID: ${account_id}
       ACCESS_ID: ${access_id}
@@ -13,7 +15,7 @@ services:
       - "8081"
 
   frontend:
-    build: ./react
+    build: ../../frontend
     expose:
       - "80"
 

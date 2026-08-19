@@ -3,7 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-12-10",
   "assets": {
-    "directory": "../../react/dist",
+    "directory": "../../frontend/dist",
     "binding": "ASSETS",
     "run_worker_first": true
   },
