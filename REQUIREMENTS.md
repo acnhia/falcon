@@ -18,6 +18,25 @@ Every new user requirement must be recorded in this file before implementation w
 
 - The Java application’s root namespace is `com.falcon` (renamed from `com.filemanagement` on 2026-08-17).
 - All source and test package declarations, imports, and directory paths must use the same namespace so Spring component scanning remains rooted at the application class.
+- The Spring entry point is `com.falcon.FalconApplication`, at the namespace root, so component scanning needs no `scanBasePackages` override.
+
+## Repository structure and ownership boundaries
+
+Recorded 2026-08-19 following the principal-engineer assessment in `code standards review.md`. Application code, deployment code, and documentation must occupy distinct, correctly named top-level boundaries.
+
+- Top-level layout is `backend/` (server and edge runtimes), `frontend/` (browser application), `infrastructure/` (deployment, provisioning, local runtime), and `docs/` (requirements, architecture, ADRs, research).
+- `backend/` contains `java-service/` (Spring Boot reference implementation), `edge-worker/` (the deployed Worker runtime), and `contracts/` (versioned API contract, shared field catalogue, and parity tests).
+- Runtime application code must never live inside the infrastructure boundary. `infrastructure/cloudflare/` holds only Wrangler configuration, migrations, provisioning scripts, and deployment tooling.
+- Worker runtime code uses the responsibility-based module vocabulary already mandated for the Java service: `web`, `domain`, `repository`, `service`, `assistant`, `validation`, `workflow`. Provider names must not appear in application module names.
+- The brokerage-onboarding and file-transfer domains must remain isolated from each other inside every runtime, not merely at the repository level.
+- Build and deployment paths are centralised in a root `Makefile`. Scripts must derive paths rather than hardcode sibling directory names.
+- Documentation has one source of truth per concern: `README.md` for setup and architecture, `docs/requirements/`, `docs/architecture/`, `docs/adr/`, `docs/research/`, and `context.md` for durable status and the decision log only.
+
+## Canonical onboarding runtime
+
+- The Cloudflare Worker (`backend/edge-worker/`) is the canonical production runtime for the onboarding API. Cloudflare Workers cannot run a JVM, and the Worker is what the live deployment serves.
+- The Java service (`backend/java-service/`) is an explicitly labelled reference implementation for local and container development. It is not deployed.
+- Because both implement the same API, a versioned contract and an automated parity suite in `backend/contracts/` must govern them. Behaviour present in one runtime and absent from the other is a defect, not a variation.
 
 ## Transfer records and sharing
 
