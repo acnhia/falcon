@@ -1,12 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
 import {
-  envPath, wranglerPath, scriptDirectory,
+  envPath, wranglerPath, edgeWorkerPath,
   parseEnvironment, required, setEnvironmentValues, cloudflare,
 } from './cloudflare-client.mjs'
 
-const cloudflareDirectory = resolve(scriptDirectory, '..')
 const envSource = await readFile(envPath, 'utf8')
 const config = parseEnvironment(envSource)
 const accountId = required(config, 'account_id')
@@ -64,8 +62,8 @@ wrangler.vars = { ...wrangler.vars, TURNSTILE_SITE_KEY: siteKey }
 await writeFile(wranglerPath, `${JSON.stringify(wrangler, null, 2)}\n`)
 
 if (secretKey) {
-  const result = spawnSync('npx', ['wrangler', 'secret', 'put', 'TURNSTILE_SECRET_KEY'], {
-    cwd: cloudflareDirectory,
+  const result = spawnSync('npx', ['wrangler', 'secret', 'put', 'TURNSTILE_SECRET_KEY', '--config', wranglerPath], {
+    cwd: edgeWorkerPath,
     input: secretKey,
     stdio: ['pipe', 'inherit', 'inherit'],
     shell: process.platform === 'win32',

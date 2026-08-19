@@ -1,9 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
-import { scriptDirectory, envPath, parseEnvironment, required } from './cloudflare-client.mjs'
+import { edgeWorkerPath, wranglerPath, envPath, parseEnvironment, required } from './cloudflare-client.mjs'
 
-const cloudflareDirectory = resolve(scriptDirectory, '..')
 const envSource = await readFile(envPath, 'utf8')
 const config = parseEnvironment(envSource)
 
@@ -15,8 +13,8 @@ if (!config.OPENAPI_KEY) {
 const accountId = required(config, 'account_id')
 const apiToken = required(config, 'api_token')
 
-const result = spawnSync('npx', ['wrangler', 'secret', 'put', 'OPENAI_API_KEY'], {
-  cwd: cloudflareDirectory,
+const result = spawnSync('npx', ['wrangler', 'secret', 'put', 'OPENAI_API_KEY', '--config', wranglerPath], {
+  cwd: edgeWorkerPath,
   input: config.OPENAPI_KEY,
   stdio: ['pipe', 'inherit', 'inherit'],
   shell: process.platform === 'win32',

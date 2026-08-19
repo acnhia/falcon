@@ -1,5 +1,6 @@
 import { SELF } from 'cloudflare:test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readJson } from './test-support/http'
 
 function stubTurnstile(success: boolean) {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -33,7 +34,7 @@ describe('login gate', () => {
     const res = await SELF.fetch('https://example.com/api/onboarding/applications/ref-1/resume')
 
     expect(res.status).toBe(401)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.error).toBeTruthy()
   })
 

@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import { authedFetch } from '../test-support/auth'
+import { readJson } from '../test-support/http'
 
 const adultFields = () => ({
   legalFirstName: 'Ada',
@@ -70,12 +71,12 @@ describe('onboarding: personal information activity', () => {
 
     const draftRes = await saveDraft(application.publicReference, 3, adultFields())
     expect(draftRes.status).toBe(200)
-    const drafted = await draftRes.json()
+    const drafted = await readJson(draftRes)
     expect(drafted.fieldValues.legalFirstName).toBe('Ada')
 
     const continueRes = await continueActivity(application.publicReference, 3)
     expect(continueRes.status).toBe(200)
-    const state = await continueRes.json()
+    const state = await readJson(continueRes)
     expect(activityStatus(state, 3)).toBe('COMPLETED')
     expect(activityStatus(state, 4)).toBe('COMPLETED')
   })
@@ -89,7 +90,7 @@ describe('onboarding: personal information activity', () => {
 
     const res = await continueActivity(application.publicReference, 3)
     expect(res.status).toBe(400)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.error).toContain('email')
   })
 
@@ -99,7 +100,7 @@ describe('onboarding: personal information activity', () => {
     await saveDraft(application.publicReference, 3, { ...adultFields(), dateOfBirth: '2015-01-01' })
 
     const res = await continueActivity(application.publicReference, 3)
-    const state = await res.json()
+    const state = await readJson(res)
     expect(activityStatus(state, 3)).toBe('COMPLETED')
     expect(activityStatus(state, 4)).toBe('BLOCKED')
   })
@@ -111,7 +112,7 @@ describe('onboarding: personal information activity', () => {
 
     const idempotencyKey = crypto.randomUUID()
     await continueActivity(application.publicReference, 3, idempotencyKey)
-    const secondState = await (await continueActivity(application.publicReference, 3, idempotencyKey)).json()
+    const secondState = await readJson(await continueActivity(application.publicReference, 3, idempotencyKey))
     expect(activityStatus(secondState, 4)).toBe('COMPLETED')
 
     const row = await env.ONBOARDING_DB.prepare(
@@ -127,7 +128,7 @@ describe('onboarding: personal information activity', () => {
     await continueActivity(application.publicReference, 3)
 
     const res = await saveDraft(application.publicReference, 3, { dateOfBirth: '1985-05-05' })
-    const state = await res.json()
+    const state = await readJson(res)
     expect(activityStatus(state, 4)).toBe('STALE')
   })
 
@@ -141,7 +142,7 @@ describe('onboarding: personal information activity', () => {
     const application = await createApplication()
     const res = await saveDraft(application.publicReference, 3, { ...adultFields(), maritalStatus: 'NOT_A_REAL_STATUS' })
     expect(res.status).toBe(400)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.error).toContain('maritalStatus')
   })
 
@@ -149,7 +150,7 @@ describe('onboarding: personal information activity', () => {
     const application = await createApplication()
     const res = await saveDraft(application.publicReference, 3, { ...adultFields(), isControlPerson: 'maybe' })
     expect(res.status).toBe(400)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.error).toContain('isControlPerson')
   })
 })
@@ -160,27 +161,27 @@ describe('onboarding: identity capture', () => {
     const linkRes = await authedFetch(
       `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })
     expect(linkRes.status).toBe(200)
-    const link = await linkRes.json()
+    const link = await readJson(linkRes)
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
-    const contextBefore = await (await authedFetch(`https://example.com/api/onboarding/captures/${token}`)).json()
+    const contextBefore = await readJson(await authedFetch(`https://example.com/api/onboarding/captures/${token}`))
     expect(contextBefore.frontCaptured).toBe(false)
 
     const frontRes = await uploadDocument(token, 'front', jpegBytes(100, 100))
     expect(frontRes.status).toBe(200)
-    const frontBody = await frontRes.json()
+    const frontBody = await readJson(frontRes)
     expect(frontBody.bothSidesCaptured).toBe(false)
 
     const backRes = await uploadDocument(token, 'back', jpegBytes(100, 100))
-    const backBody = await backRes.json()
+    const backBody = await readJson(backRes)
     expect(backBody.bothSidesCaptured).toBe(true)
     expect(backBody.status).toBe('READY_FOR_REVIEW')
   })
 
   it('a used capture token returns a safe generic error on reuse', async () => {
     const application = await createApplication()
-    const link = await (await authedFetch(
-      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
+    const link = await readJson(await authedFetch(
+      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' }))
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
     await uploadDocument(token, 'front', jpegBytes(100, 100))
@@ -201,8 +202,8 @@ describe('onboarding: identity capture', () => {
 
   it('rejects an oversized document', async () => {
     const application = await createApplication()
-    const link = await (await authedFetch(
-      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
+    const link = await readJson(await authedFetch(
+      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' }))
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
     const oversized = new Uint8Array(8_388_609)
@@ -212,8 +213,8 @@ describe('onboarding: identity capture', () => {
 
   it('rejects a document whose content does not match its declared content type', async () => {
     const application = await createApplication()
-    const link = await (await authedFetch(
-      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
+    const link = await readJson(await authedFetch(
+      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' }))
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
     const notActuallyJpeg = new TextEncoder().encode('this is not an image')
@@ -223,8 +224,8 @@ describe('onboarding: identity capture', () => {
 
   it('rejects a document whose dimensions exceed the allowed maximum', async () => {
     const application = await createApplication()
-    const link = await (await authedFetch(
-      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' })).json()
+    const link = await readJson(await authedFetch(
+      `https://example.com/api/onboarding/applications/${application.publicReference}/capture-links`, { method: 'POST' }))
     const token = link.captureUrl.match(/#\/capture\/([^/?#]+)$/)[1]
 
     const res = await uploadDocument(token, 'front', jpegBytes(5000, 5000))
@@ -234,12 +235,12 @@ describe('onboarding: identity capture', () => {
 
 async function createApplication(): Promise<{ publicReference: string; status: string }> {
   const res = await authedFetch('https://example.com/api/onboarding/applications', { method: 'POST' })
-  return res.json()
+  return readJson(res)
 }
 
 async function resumeState(publicReference: string) {
   const res = await authedFetch(`https://example.com/api/onboarding/applications/${publicReference}/resume`)
-  return res.json()
+  return readJson(res)
 }
 
 function continueActivity(publicReference: string, activityNumber: number, idempotencyKey = crypto.randomUUID()) {
@@ -270,7 +271,10 @@ interface ActivityView {
 }
 
 function activityStatus(state: { activities: ActivityView[] }, activityNumber: number): string {
-  return state.activities.find((a: { activityNumber: number }) => a.activityNumber === activityNumber).status
+  const activity = state.activities.find((a) => a.activityNumber === activityNumber)
+  // Fail with the activity number rather than a TypeError on undefined.status.
+  if (!activity) throw new Error(`No activity ${activityNumber} in the resume state`)
+  return activity.status
 }
 
 function jpegBytes(width: number, height: number): Uint8Array {

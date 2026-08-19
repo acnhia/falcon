@@ -1,6 +1,6 @@
 {
   "name": "aom-demo",
-  "main": "src/index.ts",
+  "main": "../../backend/edge-worker/src/index.ts",
   "compatibility_date": "2025-12-10",
   "assets": {
     "directory": "../../frontend/dist",

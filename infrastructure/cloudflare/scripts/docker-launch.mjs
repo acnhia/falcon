@@ -4,7 +4,7 @@ import { scriptDirectory, projectRoot } from './cloudflare-client.mjs'
 
 const dockerfile = resolve(scriptDirectory, '../Dockerfile.deploy')
 const image = 'brokerage-onboarding-deploy'
-const cloudflareModulesVolume = 'brokerage-onboarding-cloudflare-node-modules'
+const cloudflareModulesVolume = 'brokerage-onboarding-edge-worker-node-modules'
 const frontendModulesVolume = 'brokerage-onboarding-frontend-node-modules'
 
 run('docker', ['build', '-f', dockerfile, '-t', image, projectRoot], 'Build deploy image')
@@ -12,7 +12,7 @@ run('docker', ['build', '-f', dockerfile, '-t', image, projectRoot], 'Build depl
 const runArgs = [
   'run', '--rm',
   '-v', `${projectRoot}:/workspace`,
-  '-v', `${cloudflareModulesVolume}:/workspace/infrastructure/cloudflare/node_modules`,
+  '-v', `${cloudflareModulesVolume}:/workspace/backend/edge-worker/node_modules`,
   '-v', `${frontendModulesVolume}:/workspace/frontend/node_modules`,
   '-e', `SKIP_TESTS=${process.env.SKIP_TESTS ?? 'false'}`,
   image,

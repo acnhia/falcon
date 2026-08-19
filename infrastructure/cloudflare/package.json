@@ -1,32 +1,16 @@
 {
-  "name": "multipart-upload-cloudflare",
+  "name": "cloudflare-infrastructure",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "Provisioning and deployment tooling for the Cloudflare target. Holds no application code; the runtime it deploys lives in backend/edge-worker.",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "provision:d1": "node scripts/provision-d1.mjs",
     "provision:r2": "node scripts/provision-r2.mjs",
+    "provision:d1": "node scripts/provision-d1.mjs",
+    "provision:onboarding-d1": "node scripts/provision-onboarding-d1.mjs",
     "provision:auth": "node scripts/provision-auth-secrets.mjs",
     "provision:turnstile": "node scripts/provision-turnstile.mjs",
     "launch": "node scripts/launch.mjs",
-    "launch:docker": "node scripts/docker-launch.mjs",
-    "check": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260812.1",
-    "@cloudflare/vitest-pool-workers": "^0.21.3",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.0",
-    "wrangler": "^4.31.0"
-  },
-  "allowScripts": {
-    "workerd@1.20251210.0": true,
-    "workerd@1.20260811.1": true,
-    "esbuild@0.28.2": true,
-    "esbuild@0.27.0": true,
-    "esbuild@0.28.1": true
+    "launch:docker": "node scripts/docker-launch.mjs"
   }
 }

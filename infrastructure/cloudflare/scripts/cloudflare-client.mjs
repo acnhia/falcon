@@ -6,6 +6,14 @@ export const projectRoot = resolve(scriptDirectory, '../../..')
 export const envPath = resolve(projectRoot, '.env')
 export const wranglerPath = resolve(scriptDirectory, '../wrangler.jsonc')
 
+/**
+ * The Worker runtime this tooling deploys. It deliberately lives outside the infrastructure
+ * boundary (backend/edge-worker) - infrastructure owns deployment, not application code.
+ * wrangler commands run from there because that is where its dependencies are installed,
+ * and are pointed back at `wranglerPath` with --config.
+ */
+export const edgeWorkerPath = resolve(projectRoot, 'backend/edge-worker')
+
 export function parseEnvironment(source) {
   return Object.fromEntries(source.split(/\r?\n/)
     .filter((line) => line && !line.startsWith('#'))

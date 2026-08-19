@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { extractFields } from './fieldExtraction'
 import { authedFetch } from '../test-support/auth'
+import { readJson } from '../test-support/http'
 
 const FIELD_DEFINITIONS = [
   { field_key: 'legalFirstName', data_type: 'STRING' },
@@ -25,7 +26,7 @@ describe('POST /api/onboarding/assistant/extract-fields', () => {
     })
 
     expect(res.status).toBe(503)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.error).toBeTruthy()
   })
 })

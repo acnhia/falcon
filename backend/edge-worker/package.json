@@ -1,0 +1,27 @@
+{
+  "name": "edge-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --config ../../infrastructure/cloudflare/wrangler.jsonc",
+    "deploy": "wrangler deploy --config ../../infrastructure/cloudflare/wrangler.jsonc",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260812.1",
+    "@cloudflare/vitest-pool-workers": "^0.21.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.31.0"
+  },
+  "allowScripts": {
+    "workerd@1.20251210.0": true,
+    "workerd@1.20260811.1": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.27.0": true,
+    "esbuild@0.28.1": true
+  },
+  "description": "Canonical production runtime for the onboarding API and the file-transfer demo."
+}
