@@ -204,6 +204,16 @@ export default function PersonalInformationPage({
     addMessage({ id: crypto.randomUUID(), role: 'assistant', text: 'Voice session ended.' })
   }
 
+  /**
+   * Dismissing the hint starts voice straight away, so a reviewer never has to find the mic button.
+   * It must happen in this click handler: microphone permission requires a user gesture, and a
+   * session started from an effect would be blocked by the browser.
+   */
+  function handleDismissVoiceHint() {
+    setShowVoiceHint(false)
+    if (voiceSupported && voiceState === 'idle') handleMicClick()
+  }
+
   async function handleMicClick() {
     if (voiceState !== 'idle') {
       endVoiceSession()
@@ -528,17 +538,17 @@ export default function PersonalInformationPage({
           <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Try the voice option">
             <h2>Try filling this form by voice</h2>
             <p>
-              Try out the voice option to fill the form instead of a traditional form-filling method. Press the
-              microphone button in the assistant panel and just say your details - it understands every field on all
-              three steps, and you can give several at once ("my name is Ada Lovelace, I live at 123 Main Street,
-              Springfield, Illinois 62704").
+              Try filling this form by voice instead of typing. Closing this message starts a voice session right
+              away, so just say your details - it understands every field on all three steps, and you can give
+              several at once ("my name is Ada Lovelace, I live at 123 Main Street, Springfield, Illinois 62704").
             </p>
             <p>
-              While a voice session is live, press the <strong>spacebar</strong> or the mute button to mute your
-              microphone. You can also type or paste your details into the chat instead.
+              Your browser will ask for microphone permission. While a session is live, press the{' '}
+              <strong>spacebar</strong> or the mute button to mute yourself, and the microphone button to end it.
+              You can also type or paste your details into the chat instead.
             </p>
-            <button type="button" onClick={() => setShowVoiceHint(false)}>
-              Got it
+            <button type="button" onClick={handleDismissVoiceHint}>
+              Start talking
             </button>
           </div>
         </div>

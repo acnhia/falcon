@@ -55,5 +55,9 @@
   ],
   "vars": {
     "TURNSTILE_SITE_KEY": "0x4AAAAAAEVGz3TAYNRsq20Z"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }

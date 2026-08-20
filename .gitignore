@@ -20,3 +20,5 @@ infrastructure/cloudflare/.wrangler/
 
 # local tooling state
 .claude/
+
+context.md

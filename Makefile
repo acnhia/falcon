@@ -13,7 +13,7 @@ COMPOSE_FILE   := infrastructure/local/compose.yaml
 MVN := docker run --rm -v "$(PWD)/backend":/build -w /build/java-service -v maven-repo:/root/.m2 maven:3.9-eclipse-temurin-21 mvn
 
 .DEFAULT_GOAL := help
-.PHONY: help install test test-java test-worker test-frontend check build deploy up down clean
+.PHONY: help install test test-java test-worker test-frontend check build deploy up down clean logins logins-summary tail
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -51,3 +51,18 @@ down: ## Stop the local stack
 
 clean: ## Remove build output
 	rm -rf $(FRONTEND)/dist $(JAVA_SERVICE)/target
+
+# --- Access log -------------------------------------------------------------
+# Who has logged in to the deployed demo. With one shared credential, visitors are
+# distinguished by IP, location and user agent rather than by identity.
+D1_ONBOARDING := onboarding-test
+D1 = cd $(EDGE_WORKER) && npx wrangler d1 execute $(D1_ONBOARDING) --remote --config ../../$(CLOUDFLARE)/wrangler.jsonc
+
+logins: ## Every login attempt, newest first
+	@$(D1) --command "SELECT occurred_at, outcome, ip_address, city, region, country, network FROM auth_login_event ORDER BY occurred_at DESC LIMIT 100;"
+
+logins-summary: ## Distinct visitors: logins per IP, with first and last seen
+	@$(D1) --command "SELECT ip_address, country, city, network, COUNT(*) AS logins, MIN(occurred_at) AS first_seen, MAX(occurred_at) AS last_seen FROM auth_login_event WHERE outcome = 'SUCCESS' GROUP BY ip_address ORDER BY logins DESC;"
+
+tail: ## Live request stream from the deployed Worker
+	cd $(EDGE_WORKER) && npx wrangler tail --config ../../$(CLOUDFLARE)/wrangler.jsonc --format pretty

@@ -154,3 +154,26 @@ INSERT OR IGNORE INTO field_definition (field_key, activity_number, data_type, r
   ('costBasisMethod', 3, 'ENUM', 0, 1),
   ('w9Certification', 3, 'BOOLEAN', 1, 1),
   ('esignatureConsent', 3, 'BOOLEAN', 1, 1);
+
+-- Access log for the site-wide login gate. Not onboarding data, but it shares this database
+-- rather than provisioning a third one for a single table. Ownership lives in the code
+-- (backend/edge-worker/src/auth/loginEventRepository.ts), which is the boundary that matters.
+--
+-- Records every login attempt, successful or not, so "how many people reviewed this, and when"
+-- is answerable. With a single shared admin credential, visitors are distinguished by IP,
+-- approximate location and user agent rather than by identity.
+CREATE TABLE IF NOT EXISTS auth_login_event (
+  id TEXT PRIMARY KEY,
+  occurred_at TEXT NOT NULL,
+  outcome TEXT NOT NULL,          -- SUCCESS | BAD_CREDENTIALS | FAILED_CAPTCHA
+  ip_address TEXT,
+  country TEXT,
+  region TEXT,
+  city TEXT,
+  timezone TEXT,
+  network TEXT,                   -- ASN organisation, e.g. the ISP or corporate network
+  user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_login_event_occurred_at ON auth_login_event (occurred_at);
+CREATE INDEX IF NOT EXISTS idx_auth_login_event_ip ON auth_login_event (ip_address);

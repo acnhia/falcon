@@ -27,7 +27,13 @@ describe('PersonalInformationPage', () => {
     vi.resetModules()
   })
 
-  /** Dismisses the intro voice-hint modal, which otherwise covers the form in every test. */
+  /**
+   * Dismisses the intro voice-hint modal, which otherwise covers the form in every test.
+   *
+   * Dismissing it now also starts a voice session by design, so the helper closes that session
+   * again and clears the mock. Tests below therefore start from an idle baseline and keep testing
+   * what they were written to test; the auto-start behaviour has its own dedicated test.
+   */
   async function renderPage(overrides: Record<string, unknown> = {}) {
     const { default: PersonalInformationPage } = await import('./PersonalInformationPage')
     const result = render(
@@ -39,8 +45,13 @@ describe('PersonalInformationPage', () => {
         {...overrides}
       />,
     )
-    const dismiss = screen.queryByRole('button', { name: /got it/i })
-    if (dismiss) fireEvent.click(dismiss)
+    const dismiss = screen.queryByRole('button', { name: /start talking/i })
+    if (dismiss) {
+      fireEvent.click(dismiss)
+      await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalled())
+      fireEvent.click(screen.getByRole('button', { name: /end voice session|connecting to voice session/i }))
+      voice.startRealtimeSession.mockClear()
+    }
     return result
   }
 
@@ -69,18 +80,38 @@ describe('PersonalInformationPage', () => {
     expect(screen.queryByText(/% complete/i)).toBeNull()
   })
 
-  it('greets a first-time visitor with a modal suggesting the voice option, dismissible with "Got it"', async () => {
+  it('greets a first-time visitor with a modal suggesting the voice option', async () => {
     const { default: PersonalInformationPage } = await import('./PersonalInformationPage')
     render(
       <PersonalInformationPage publicReference="ref-1" initialFieldValues={{}} onContinued={vi.fn()} onRestart={vi.fn()} />,
     )
 
     const dialog = screen.getByRole('dialog', { name: /try the voice option/i })
-    expect(dialog.textContent).toMatch(/try out the voice option to fill the form/i)
+    expect(dialog.textContent).toMatch(/try filling this form by voice/i)
     expect(dialog.textContent).toMatch(/spacebar/i)
 
-    fireEvent.click(screen.getByRole('button', { name: /got it/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start talking/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('starts a voice session on dismissing the hint, so a reviewer never hunts for the mic button', async () => {
+    const { default: PersonalInformationPage } = await import('./PersonalInformationPage')
+    render(
+      <PersonalInformationPage publicReference="ref-1" initialFieldValues={{}} onContinued={vi.fn()} onRestart={vi.fn()} />,
+    )
+
+    expect(voice.startRealtimeSession).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /start talking/i }))
+
+    await waitFor(() => expect(voice.startRealtimeSession).toHaveBeenCalledOnce())
+  })
+
+  it('does not start voice when the browser cannot support it', async () => {
+    voice.isRealtimeVoiceSupported.mockReturnValue(false)
+    await renderPage()
+
+    expect(screen.queryByRole('dialog', { name: /try the voice option/i })).toBeNull()
+    expect(voice.startRealtimeSession).not.toHaveBeenCalled()
   })
 
   it('moves between the 3 wizard steps with Back/Next, keeping field values', async () => {

@@ -71,7 +71,7 @@ ${captchaConfigured ? '<script src="https://challenges.cloudflare.com/turnstile/
 <body>
   <div class="card">
     <h1>Sign in</h1>
-    <p class="subtitle">Demonstration only - synthetic data. Login is required before any page or API on this site is reachable.</p>
+    <p class="subtitle">Demonstration only - synthetic data. Login is required before any page or API on this site is reachable. Sign-in attempts are logged, including IP address and approximate location.</p>
     ${captchaConfigured ? `
     <form method="POST" action="/api/auth/login">
       <label for="username">Username</label>
