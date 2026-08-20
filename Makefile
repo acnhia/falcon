@@ -55,14 +55,11 @@ clean: ## Remove build output
 # --- Access log -------------------------------------------------------------
 # Who has logged in to the deployed demo. With one shared credential, visitors are
 # distinguished by IP, location and user agent rather than by identity.
-D1_ONBOARDING := onboarding-test
-D1 = cd $(EDGE_WORKER) && npx wrangler d1 execute $(D1_ONBOARDING) --remote --config ../../$(CLOUDFLARE)/wrangler.jsonc
-
 logins: ## Every login attempt, newest first
-	@$(D1) --command "SELECT occurred_at, outcome, ip_address, city, region, country, network FROM auth_login_event ORDER BY occurred_at DESC LIMIT 100;"
+	@cd $(CLOUDFLARE) && node scripts/show-logins.mjs
 
 logins-summary: ## Distinct visitors: logins per IP, with first and last seen
-	@$(D1) --command "SELECT ip_address, country, city, network, COUNT(*) AS logins, MIN(occurred_at) AS first_seen, MAX(occurred_at) AS last_seen FROM auth_login_event WHERE outcome = 'SUCCESS' GROUP BY ip_address ORDER BY logins DESC;"
+	@cd $(CLOUDFLARE) && node scripts/show-logins.mjs summary
 
 tail: ## Live request stream from the deployed Worker
 	cd $(EDGE_WORKER) && npx wrangler tail --config ../../$(CLOUDFLARE)/wrangler.jsonc --format pretty
